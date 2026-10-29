@@ -12,6 +12,7 @@
 
 import json
 import os
+import re
 import time
 import urllib.error
 import urllib.request
@@ -20,6 +21,9 @@ import ai_assistant
 from config import ADMIN_CHAT_ID, API_BASE, BOT_TOKEN, PAYMENT_PROVIDER_TOKEN
 import database
 import pdf_generator
+
+# Множество chat_id клиентов, находящихся в процессе ввода прямой заявки
+AWAITING_LEADS = set()
 
 
 # ---------------------------------------------------------
@@ -91,6 +95,23 @@ def answer_pre_checkout_query(pre_checkout_query_id, ok=True, error_message=None
     if error_message:
         data["error_message"] = error_message
     return telegram_api("answerPreCheckoutQuery", data)
+
+
+def setup_bot_commands():
+    """Регистрация системного меню команд бота в Telegram API (кнопка 'Меню' слева внизу)."""
+    commands = [
+        {"command": "start", "description": "🚀 Главное меню / Перезапуск"},
+        {"command": "services", "description": "🛠 Каталог услуг и цены"},
+        {"command": "calc", "description": "💰 Калькулятор сметы онлайн"},
+        {"command": "portfolio", "description": "📁 Примеры работ и кейсы"},
+        {"command": "contacts", "description": "📞 Связаться / Оставить заявку"}
+    ]
+    res1 = telegram_api("setMyCommands", {"commands": commands})
+    res2 = telegram_api("setChatMenuButton", {"menu_button": {"type": "commands"}})
+    if res1 and res1.get("ok"):
+        print("✅ Меню команд бота (setMyCommands) успешно зарегистрировано в Telegram!")
+    else:
+        print(f"⚠️ Ошибка регистрации команд: {res1}")
 
 
 def send_document(chat_id, file_path, caption=""):
@@ -509,14 +530,25 @@ def handle_callback(chat_id, data, user_name, username, cb_id=None):
         send_message(chat_id, text, contacts_kb)
 
     elif data == "leave_lead":
+        AWAITING_LEADS.add(chat_id)
         text = (
-            "<b>✍️ ОФОРМЛЕНИЕ ЗАЯВКИ:</b>\n\n"
+            "<b>✍️ ОФОРМЛЕНИЕ ЗАЯВКИ НА РАЗРАБОТКУ:</b>\n\n"
             "Напишите прямо сюда в ответном сообщении:\n"
-            "• Какая задача стоит (бот, парсер, скрипт)?\n"
-            "• Ваши контакты (Telegram / Телефон / Email)\n\n"
-            "<i>Заявка будет автоматически сохранена в базу данных SQLite (leads.db)!</i>"
+            "• Какая задача стоит (бот, парсер маркетплейсов, скрипт)?\n"
+            "• Ваши контакты для связи (Telegram, телефон или email)\n\n"
+            "<i>Заявка будет моментально зарегистрирована в CRM и передана разработчику!</i>"
         )
-        send_message(chat_id, text, get_main_keyboard(is_admin))
+        cancel_kb = {
+            "inline_keyboard": [
+                [{"text": "❌ Отменить оформление", "callback_data": "cancel_lead"}],
+                [{"text": "◀️ В главное меню", "callback_data": "menu"}]
+            ]
+        }
+        send_message(chat_id, text, cancel_kb)
+
+    elif data == "cancel_lead":
+        AWAITING_LEADS.discard(chat_id)
+        send_message(chat_id, "Оформление заявки отменено. Чем ещё могу помочь?", get_main_keyboard(is_admin))
 
     # Квиз-калькулятор
     elif data.startswith("calc_"):
@@ -743,6 +775,7 @@ def run_bot():
 
     bot_username = me["result"]["username"]
     print(f"✅ Успешное подключение! Имя бота: @{bot_username}")
+    setup_bot_commands()
     print("Ожидание сообщений... (Нажми Ctrl+C или напиши /stop)\n")
 
     bot_start_time = time.time()
@@ -836,35 +869,138 @@ def run_bot():
                                         rep += f"🕒 <code>{dt}</code>\n\n"
                                 send_message(chat_id, rep, get_admin_keyboard())
 
+                        elif text == "/services":
+                            text_services = (
+                                "<b>🛠 НАШИ УСЛУГИ:</b>\n\n"
+                                "1. <b>Telegram-боты под ключ</b> (магазины, онлайн-запись, оплата) — от 10 000 ₽\n"
+                                "2. <b>Парсинг сайтов и маркетплейсов</b> (WB, Ozon, базы данных) — от 8 000 ₽\n"
+                                "3. <b>Автоматизация рутины</b> (скрипты, отчёты, интеграция CRM) — от 6 000 ₽\n"
+                                "4. <b>Локальные ИИ-ассистенты</b> под базу знаний компании — от 25 000 ₽"
+                            )
+                            send_message(chat_id, text_services, get_main_keyboard(is_admin))
+
+                        elif text == "/calc":
+                            handle_quiz(chat_id, "calc_step1")
+
+                        elif text == "/portfolio":
+                            text_port = (
+                                "<b>📁 МОЁ ПОРТФОЛИО (Интерактивные кейсы):</b>\n\n"
+                                "Выберите проект ниже, чтобы посмотреть стек технологий, архитектуру и результаты:"
+                            )
+                            portfolio_kb = {
+                                "inline_keyboard": [
+                                    [{"text": "⚡ Кейс: Async TCP Port Scanner", "callback_data": "case_scanner"}],
+                                    [{"text": "🕷 Кейс: Enterprise Web Scraper", "callback_data": "case_scraper"}],
+                                    [{"text": "🤖 Кейс: Telegram Commercial Hub (v2.1)", "callback_data": "case_hub"}],
+                                    [{"text": "🐙 Открыть GitHub профиль", "url": "https://github.com/viper86rus-arch"}],
+                                    [{"text": "◀️ В главное меню", "callback_data": "menu"}]
+                                ]
+                            }
+                            send_message(chat_id, text_port, portfolio_kb)
+
+                        elif text == "/contacts":
+                            text_contacts = (
+                                "<b>📞 СВЯЗАТЬСЯ СО МНОЙ / ЗАКАЗ:</b>\n\n"
+                                "Готов обсудить ваш проект и составить ТЗ прямо сейчас!\n\n"
+                                "🐙 <b>GitHub:</b> <a href=\"https://github.com/viper86rus-arch\">https://github.com/viper86rus-arch</a>\n\n"
+                                "💡 <i>Нажмите «✍️ Оставить заявку» или задайте любой вопрос прямо сюда — наш ИИ моментально сориентирует вас по деталям!</i>"
+                            )
+                            contacts_kb = {
+                                "inline_keyboard": [
+                                    [
+                                        {"text": "✍️ Оставить заявку", "callback_data": "leave_lead"},
+                                        {"text": "🐙 GitHub", "url": "https://github.com/viper86rus-arch"}
+                                    ],
+                                    [
+                                        {"text": "💰 Рассчитать смету", "callback_data": "calc_step1"},
+                                        {"text": "◀️ Главное меню", "callback_data": "menu"}
+                                    ]
+                                ]
+                            }
+                            send_message(chat_id, text_contacts, contacts_kb)
+
+                        elif text == "/order":
+                            AWAITING_LEADS.add(chat_id)
+                            order_prompt = (
+                                "<b>✍️ ОФОРМЛЕНИЕ ЗАЯВКИ НА РАЗРАБОТКУ:</b>\n\n"
+                                "Напишите прямо сюда в ответном сообщении:\n"
+                                "• Какая задача стоит (бот, парсер маркетплейсов, скрипт)?\n"
+                                "• Ваши контакты для связи (Telegram, телефон или email)\n\n"
+                                "<i>Заявка будет моментально зарегистрирована в CRM и передана разработчику!</i>"
+                            )
+                            cancel_kb = {
+                                "inline_keyboard": [
+                                    [{"text": "❌ Отменить оформление", "callback_data": "cancel_lead"}],
+                                    [{"text": "◀️ В главное меню", "callback_data": "menu"}]
+                                ]
+                            }
+                            send_message(chat_id, order_prompt, cancel_kb)
+
                         else:
-                            # 1. Сохраняем входящее сообщение как заявку в CRM
-                            lead_id = database.save_lead(chat_id, uname, user_name, text)
-                            print(f"💾 Заявка #{lead_id} от {user_name} сохранена в leads.db!")
+                            # Проверяем: явная ли это заявка на заказ или обычный вопрос-консультация?
+                            is_explicit_lead = False
+                            if chat_id in AWAITING_LEADS:
+                                is_explicit_lead = True
+                                AWAITING_LEADS.discard(chat_id)
+                            else:
+                                # Проверка на наличие контактных данных или прямых фраз заказа
+                                has_phone = bool(re.search(r"(\+7|8)[\s\-]?\(?\d{3}\)?[\s\-]?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}", text))
+                                has_email = bool(re.search(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+", text))
+                                has_order_phrase = bool(re.search(r"\b(хочу заказать|мой заказ|примите заказ|оформить заявку|мои контакты|мой номер|свяжитесь со мной)\b", text.lower()))
+                                if has_phone or has_email or has_order_phrase:
+                                    is_explicit_lead = True
 
-                            # 2. Формируем экспертный ответ ИИ-консультанта клиенту
-                            ai_reply = ai_assistant.get_expert_ai_response(text, user_name)
-                            send_message(chat_id, ai_reply, get_main_keyboard(is_admin))
+                            if is_explicit_lead:
+                                # ЯВНАЯ ЗАЯВКА: сохраняем в CRM и оповещаем администратора
+                                lead_id = database.save_lead(chat_id, uname, user_name, text)
+                                print(f"💾 Официальная заявка #{lead_id} от {user_name} сохранена в leads.db!")
 
-                            # 3. Мгновенный пуш администратору в личку
-                            if current_admin:
-                                uname_display = f"@{uname}" if uname else "нет (только имя)"
-                                admin_alert = (
-                                    f"🔔 <b>НОВАЯ ЗАЯВКА / ВОПРОС #{lead_id}!</b>\n"
-                                    f"━━━━━━━━━━━━━━━━━━\n"
-                                    f"👤 <b>Клиент:</b> {user_name}\n"
-                                    f"📱 <b>Telegram:</b> {uname_display}\n"
-                                    f"🆔 <b>User ID:</b> <code>{chat_id}</code>\n\n"
-                                    f"📝 <b>Вопрос / Задача:</b>\n"
-                                    f"«<i>{text}</i>»"
+                                ok_lead_text = (
+                                    f"✅ <b>Заявка #{lead_id} успешно принята!</b>\n\n"
+                                    f"👤 <b>Заказчик:</b> {user_name}\n"
+                                    f"📝 <b>Задача:</b> «<i>{text}</i>»\n\n"
+                                    f"👨‍💻 Разработчик Макс (@V1PER86RUS) получил уведомление в CRM и свяжется с вами в течение нескольких минут для согласования деталей проекта!"
                                 )
-                                reply_kb = None
-                                if uname:
-                                    reply_kb = {
-                                        "inline_keyboard": [
-                                            [{"text": f"💬 Написать клиенту (@{uname})", "url": f"https://t.me/{uname}"}]
-                                        ]
-                                    }
-                                send_message(current_admin, admin_alert, reply_kb)
+                                lead_kb = {
+                                    "inline_keyboard": [
+                                        [{"text": "💰 Рассчитать предварительную смету", "callback_data": "calc_step1"}],
+                                        [{"text": "◀️ В главное меню", "callback_data": "menu"}]
+                                    ]
+                                }
+                                send_message(chat_id, ok_lead_text, lead_kb)
+
+                                if current_admin:
+                                    uname_display = f"@{uname}" if uname else "нет (только имя)"
+                                    admin_alert = (
+                                        f"🔔 <b>НОВАЯ ЗАЯВКА ОТ КЛИЕНТА #{lead_id}!</b>\n"
+                                        f"━━━━━━━━━━━━━━━━━━\n"
+                                        f"👤 <b>Клиент:</b> {user_name}\n"
+                                        f"📱 <b>Telegram:</b> {uname_display}\n"
+                                        f"🆔 <b>User ID:</b> <code>{chat_id}</code>\n\n"
+                                        f"📝 <b>Текст задачи / Контакты:</b>\n"
+                                        f"«<i>{text}</i>»"
+                                    )
+                                    reply_kb = None
+                                    if uname:
+                                        reply_kb = {
+                                            "inline_keyboard": [
+                                                [{"text": f"💬 Написать клиенту (@{uname})", "url": f"https://t.me/{uname}"}]
+                                            ]
+                                        }
+                                    send_message(current_admin, admin_alert, reply_kb)
+
+                            else:
+                                # ОБЫЧНЫЙ ВОПРОС / КОНСУЛЬТАЦИЯ:
+                                # Базу данных НЕ засоряем, администратора НЕ беспокоим!
+                                ai_reply = ai_assistant.get_expert_ai_response(text, user_name)
+                                consult_kb = {
+                                    "inline_keyboard": [
+                                        [{"text": "💰 Рассчитать смету онлайн", "callback_data": "calc_step1"}],
+                                        [{"text": "✍️ Оставить заявку на проект", "callback_data": "leave_lead"}],
+                                        [{"text": "◀️ В главное меню", "callback_data": "menu"}]
+                                    ]
+                                }
+                                send_message(chat_id, ai_reply, consult_kb)
 
                     # 2. Обработка готовности принять платёж Telegram Payments
                     elif "pre_checkout_query" in item:
