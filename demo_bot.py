@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """
-🤖 Демонстрационный Telegram-бот: "IT-Студия под ключ" (Коммерческий релиз)
--------------------------------------------------------------------------
+🤖 Демонстрационный Telegram-бот: "IT-Студия под ключ" (Release v2.1)
+---------------------------------------------------------------------
 Архитектура:
-- config.py      : Безопасные переменные окружения (.env)
-- database.py    : SQLite CRM (leads.db), аналитика и экспорт в Excel/CSV
-- demo_bot.py    : Интерактивный квиз-калькулятор, инлайн-меню, админ-панель
-Запуск: python /storage/emulated/0/Documents/Freelance/bots/demo_bot.py
+- config.py        : Безопасные переменные окружения (.env)
+- database.py      : SQLite CRM (leads.db), аналитика и экспорт в Excel/CSV
+- pdf_generator.py : Автоматическая генерация коммерческих предложений (PDF)
+- ai_assistant.py  : Умный ИИ-консультант для ответов на вопросы клиентов
+- demo_bot.py      : Диспетчер инлайн-меню, интерактивный квиз, карточки кейсов
 """
 
 import json
@@ -15,8 +16,10 @@ import time
 import urllib.error
 import urllib.request
 
+import ai_assistant
 from config import ADMIN_CHAT_ID, API_BASE, BOT_TOKEN
 import database
+import pdf_generator
 
 
 # ---------------------------------------------------------
@@ -55,23 +58,23 @@ def send_message(chat_id, text, reply_markup=None):
 
 
 def send_document(chat_id, file_path, caption=""):
-    """Отправка файла (CSV/Excel) клиенту или админу без сторонних библиотек."""
+    """Отправка файлов (PDF/CSV/Excel) клиенту или администратору."""
     url = f"{API_BASE}/sendDocument"
     boundary = "----WebKitFormBoundary" + os.urandom(16).hex()
     filename = os.path.basename(file_path)
+
+    # Определение mime-type
+    content_type = "application/pdf" if filename.endswith(".pdf") else "text/csv; charset=utf-8"
 
     try:
         with open(file_path, "rb") as f:
             file_bytes = f.read()
 
         parts = []
-        # Поле chat_id
         parts.append(f"--{boundary}\r\nContent-Disposition: form-data; name=\"chat_id\"\r\n\r\n{chat_id}\r\n".encode("utf-8"))
-        # Поле caption
         if caption:
             parts.append(f"--{boundary}\r\nContent-Disposition: form-data; name=\"caption\"\r\n\r\n{caption}\r\n".encode("utf-8"))
-        # Поле document
-        parts.append(f"--{boundary}\r\nContent-Disposition: form-data; name=\"document\"; filename=\"{filename}\"\r\nContent-Type: text/csv; charset=utf-8\r\n\r\n".encode("utf-8"))
+        parts.append(f"--{boundary}\r\nContent-Disposition: form-data; name=\"document\"; filename=\"{filename}\"\r\nContent-Type: {content_type}\r\n\r\n".encode("utf-8"))
         parts.append(file_bytes)
         parts.append(f"\r\n--{boundary}--\r\n".encode("utf-8"))
 
@@ -84,12 +87,12 @@ def send_document(chat_id, file_path, caption=""):
         with urllib.request.urlopen(req, timeout=30) as resp:
             return json.loads(resp.read().decode("utf-8"))
     except Exception as e:
-        print(f"❌ Ошибка отправки документа: {e}")
+        print(f"❌ Ошибка отправки документа {filename}: {e}")
         return None
 
 
 # ---------------------------------------------------------
-# КЛАВИАТУРЫ И МЕНЮ
+# ГЛАВНЫЕ КЛАВИАТУРЫ
 # ---------------------------------------------------------
 
 def get_main_keyboard(is_admin=False):
@@ -110,7 +113,7 @@ def get_main_keyboard(is_admin=False):
 
 
 def get_admin_keyboard():
-    """Клавиатура администратора."""
+    """Клавиатура панели администратора."""
     return {
         "inline_keyboard": [
             [
@@ -118,14 +121,14 @@ def get_admin_keyboard():
                 {"text": "📋 Последние заявки", "callback_data": "admin_leads"}
             ],
             [
-                {"text": "◀️ В главное меню", "callback_data": "menu"}
+                {"text": "◀️ В клиентское меню", "callback_data": "menu"}
             ]
         ]
     }
 
 
 # ---------------------------------------------------------
-# ОБРАБОТЧИК ИНТЕРАКТИВНОГО КАЛЬКУЛЯТОРА (QUIZ)
+# ИНТЕРАКТИВНЫЙ КВИЗ-КАЛЬКУЛЯТОР (QUIZ)
 # ---------------------------------------------------------
 
 QUIZ_PRICES = {
@@ -152,7 +155,6 @@ def handle_quiz(chat_id, data):
     parts = data.split(":")
     step = parts[0]
 
-    # Шаг 1: Выбор типа разработки
     if step == "calc_step1":
         text = (
             "<b>💰 ИНТЕРАКТИВНЫЙ КАЛЬКУЛЯТОР (Шаг 1 из 3):</b>\n\n"
@@ -168,14 +170,13 @@ def handle_quiz(chat_id, data):
         }
         send_message(chat_id, text, kb)
 
-    # Шаг 2: База данных
     elif step == "calc_step2":
         q_type = parts[1]
         t_info = QUIZ_PRICES["types"][q_type]
         text = (
             "<b>💰 ИНТЕРАКТИВНЫЙ КАЛЬКУЛЯТОР (Шаг 2 из 3):</b>\n\n"
             f"Выбрано: <b>{t_info['title']}</b>\n\n"
-            "Требуется ли подключение базы данных для хранения пользователей, заказов или товаров?"
+            "Требуется ли подключение базы данных для хранения пользователей, заказов или истории?"
         )
         kb = {
             "inline_keyboard": [
@@ -186,7 +187,6 @@ def handle_quiz(chat_id, data):
         }
         send_message(chat_id, text, kb)
 
-    # Шаг 3: Дополнительные модули
     elif step == "calc_step3":
         q_type, q_db = parts[1], parts[2]
         text = (
@@ -204,7 +204,6 @@ def handle_quiz(chat_id, data):
         }
         send_message(chat_id, text, kb)
 
-    # Итог: Расчёт сметы и кнопка заказа
     elif step == "calc_res":
         q_type, q_db, q_extra = parts[1], parts[2], parts[3]
         t_info = QUIZ_PRICES["types"][q_type]
@@ -223,20 +222,20 @@ def handle_quiz(chat_id, data):
             f"💰 <b>Стоимость:</b> <b>{total_price:,} ₽</b>\n"
             f"⏱ <b>Срок разработки:</b> <b>{total_days} дн.</b>\n"
             "━━━━━━━━━━━━━━━━━━\n"
-            "<i>Смета предварительная. Нажмите кнопку ниже, чтобы передать заказ разработчику:</i>"
+            "<i>Нажмите кнопку ниже, чтобы зафиксировать заказ и получить официальную смету в PDF:</i>"
         )
         kb = {
             "inline_keyboard": [
-                [{"text": f"✅ Заказать по этой смете ({total_price:,} ₽)", "callback_data": f"calc_order:{q_type}:{q_db}:{q_extra}:{total_price}"}],
+                [{"text": f"✅ Заказать смету ({total_price:,} ₽ + PDF)", "callback_data": f"calc_order:{q_type}:{q_db}:{q_extra}:{total_price}:{total_days}"}],
                 [{"text": "🔄 Пересчитать заново", "callback_data": "calc_step1"}],
                 [{"text": "◀️ Главное меню", "callback_data": "menu"}]
             ]
         }
         send_message(chat_id, text, kb)
 
-    # Оформление заказа по смете
     elif step == "calc_order":
-        q_type, q_db, q_extra, total_price = parts[1], parts[2], parts[3], parts[4]
+        q_type, q_db, q_extra = parts[1], parts[2], parts[3]
+        total_price, total_days = int(parts[4]), int(parts[5])
         t_info = QUIZ_PRICES["types"][q_type]
         db_info = QUIZ_PRICES["db"][q_db]
         ext_info = QUIZ_PRICES["extra"][q_extra]
@@ -245,13 +244,13 @@ def handle_quiz(chat_id, data):
             f"Смета: {t_info['title']} | БД: {db_info['title']} | Доп: {ext_info['title']} | "
             f"Сумма: {total_price} ₽"
         )
-        return order_desc, total_price
+        return order_desc, total_price, total_days, t_info["title"], db_info["title"], ext_info["title"]
 
-    return None, None
+    return None, None, None, None, None, None
 
 
 # ---------------------------------------------------------
-# ОБРАБОТЧИК КНОПОК МЕНЮ (CALLBACK QUERIES)
+# ОБРАБОТЧИК КНОПОК И КАРТОЧЕК ПОРТФОЛИО
 # ---------------------------------------------------------
 
 def handle_callback(chat_id, data, user_name, username):
@@ -261,7 +260,9 @@ def handle_callback(chat_id, data, user_name, username):
 
     if data == "menu":
         welcome = (
-            f"Главное меню IT-Студии. Выберите нужный раздел:"
+            f"Привет, <b>{user_name}</b>! 👋\n\n"
+            "Я автоматический бот-визитка для демонстрации коммерческих возможностей IT-Студии.\n"
+            "Рассчитайте смету в калькуляторе или выберите раздел ниже:"
         )
         send_message(chat_id, welcome, get_main_keyboard(is_admin))
 
@@ -275,35 +276,101 @@ def handle_callback(chat_id, data, user_name, username):
         )
         send_message(chat_id, text, get_main_keyboard(is_admin))
 
+    # Меню интерактивного портфолио
     elif data == "portfolio":
         text = (
-            "<b>📁 МОЁ ПОРТФОЛИО:</b>\n\n"
-            "• <a href=\"https://github.com/viper86rus-arch/Async_TCP_Scanner\"><b>Async TCP Port Scanner</b></a>\n"
-            "  <i>Высокоскоростной асинхронный сетевой сканер на Python</i>\n\n"
-            "• <a href=\"https://github.com/viper86rus-arch/Enterprise_Web_Scraper\"><b>Enterprise Web Scraper</b></a>\n"
-            "  <i>Многопоточный парсер данных с защитой от блокировок</i>\n\n"
-            "• <b>Telegram Commercial Hub</b>\n"
-            "  <i>Система онлайн-заказов, каталог и бот-платформа</i>\n\n"
-            "🐙 <b>GitHub разработчика:</b> <a href=\"https://github.com/viper86rus-arch\">github.com/viper86rus-arch</a>"
+            "<b>📁 МОЁ ПОРТФОЛИО (Интерактивные кейсы):</b>\n\n"
+            "Выберите проект ниже, чтобы посмотреть стек технологий, архитектуру и результаты:"
         )
         portfolio_kb = {
             "inline_keyboard": [
+                [{"text": "⚡ Кейс: Async TCP Port Scanner", "callback_data": "case_scanner"}],
+                [{"text": "🕷 Кейс: Enterprise Web Scraper", "callback_data": "case_scraper"}],
+                [{"text": "🤖 Кейс: Telegram Commercial Hub (v2.1)", "callback_data": "case_hub"}],
                 [{"text": "🐙 Открыть GitHub профиль", "url": "https://github.com/viper86rus-arch"}],
-                [
-                    {"text": "💰 Калькулятор", "callback_data": "calc_step1"},
-                    {"text": "📞 Заказать", "callback_data": "contacts"}
-                ],
                 [{"text": "◀️ В главное меню", "callback_data": "menu"}]
             ]
         }
         send_message(chat_id, text, portfolio_kb)
+
+    # Карточка кейса 1: Сканер
+    elif data == "case_scanner":
+        text = (
+            "⚡ <b>КЕЙС: Async TCP Port Scanner</b>\n"
+            "━━━━━━━━━━━━━━━━━━\n"
+            "🎯 <b>Задача:</b> Высокоскоростное сканирование портов и аудит сетевой безопасности.\n"
+            "🛠 <b>Стек технологий:</b> Python 3, asyncio, raw sockets, non-blocking I/O.\n"
+            "🚀 <b>Результат:</b> Сканирование 10 000 портов менее чем за 3 секунды.\n"
+            "🔒 <b>Особенность:</b> Устойчивая обработка таймаутов, микропотребление RAM (<30MB).\n"
+            "━━━━━━━━━━━━━━━━━━\n"
+            "👉 Исходный код открыт на GitHub:"
+        )
+        kb = {
+            "inline_keyboard": [
+                [{"text": "🐙 Смотреть код на GitHub", "url": "https://github.com/viper86rus-arch/Async_TCP_Scanner"}],
+                [
+                    {"text": "📁 Другие кейсы", "callback_data": "portfolio"},
+                    {"text": "💰 Заказать", "callback_data": "calc_step1"}
+                ],
+                [{"text": "◀️ В главное меню", "callback_data": "menu"}]
+            ]
+        }
+        send_message(chat_id, text, kb)
+
+    # Карточка кейса 2: Парсер
+    elif data == "case_scraper":
+        text = (
+            "🕷 <b>КЕЙС: Enterprise Web Scraper</b>\n"
+            "━━━━━━━━━━━━━━━━━━\n"
+            "🎯 <b>Задача:</b> Промышленный сбор каталогов товаров с маркетплейсов (WB, Ozon).\n"
+            "🛠 <b>Стек технологий:</b> Python 3, aiohttp / requests, ротация прокси, User-Agent pool.\n"
+            "🚀 <b>Результат:</b> Сбор 100 000+ карточек товаров с ценами и фото без банов.\n"
+            "💾 <b>Форматы выгрузки:</b> Excel (CSV с UTF-8 BOM), SQLite, JSON, PostgreSQL.\n"
+            "━━━━━━━━━━━━━━━━━━\n"
+            "👉 Исходный код открыт на GitHub:"
+        )
+        kb = {
+            "inline_keyboard": [
+                [{"text": "🐙 Смотреть код на GitHub", "url": "https://github.com/viper86rus-arch/Enterprise_Web_Scraper"}],
+                [
+                    {"text": "📁 Другие кейсы", "callback_data": "portfolio"},
+                    {"text": "💰 Рассчитать парсер", "callback_data": "calc_step2:parser"}
+                ],
+                [{"text": "◀️ В главное меню", "callback_data": "menu"}]
+            ]
+        }
+        send_message(chat_id, text, kb)
+
+    # Карточка кейса 3: Коммерческий хаб
+    elif data == "case_hub":
+        text = (
+            "🤖 <b>КЕЙС: Telegram Commercial Hub (v2.1)</b>\n"
+            "━━━━━━━━━━━━━━━━━━\n"
+            "🎯 <b>Задача:</b> Комплексная бот-платформа для продаж, приёма заказов и сбора лидов.\n"
+            "🛠 <b>Стек:</b> Python 3, Telegram Bot API, SQLite CRM, Role-Based Access Control.\n"
+            "📄 <b>Фичи:</b> Интерактивный квиз, автогенерация КП в PDF, выгрузка базы в Excel.\n"
+            "📱 <b>Особенность:</b> Разработано и развёрнуто прямо на мобильной рабочей станции (Android).\n"
+            "━━━━━━━━━━━━━━━━━━\n"
+            "👉 Исходный код на GitHub:"
+        )
+        kb = {
+            "inline_keyboard": [
+                [{"text": "🐙 Открыть GitHub профиль", "url": "https://github.com/viper86rus-arch"}],
+                [
+                    {"text": "📁 Другие кейсы", "callback_data": "portfolio"},
+                    {"text": "💰 Рассчитать бота", "callback_data": "calc_step1"}
+                ],
+                [{"text": "◀️ В главное меню", "callback_data": "menu"}]
+            ]
+        }
+        send_message(chat_id, text, kb)
 
     elif data == "contacts":
         text = (
             "<b>📞 СВЯЗАТЬСЯ СО МНОЙ / ЗАКАЗ:</b>\n\n"
             "Готов обсудить ваш проект и составить ТЗ прямо сейчас!\n\n"
             "🐙 <b>GitHub:</b> <a href=\"https://github.com/viper86rus-arch\">https://github.com/viper86rus-arch</a>\n\n"
-            "💡 <i>Нажмите «✍️ Оставить заявку» или просто отправьте в чат сообщение с описанием задачи и вашими контактами!</i>"
+            "💡 <i>Нажмите «✍️ Оставить заявку» или просто отправьте в чат вопрос/сообщение — наш ИИ-консультант моментально ответит, а Макс свяжется с вами!</i>"
         )
         contacts_kb = {
             "inline_keyboard": [
@@ -332,15 +399,34 @@ def handle_callback(chat_id, data, user_name, username):
     # Квиз-калькулятор
     elif data.startswith("calc_"):
         if data.startswith("calc_order:"):
-            order_desc, total_price = handle_quiz(chat_id, data)
+            order_desc, total_price, total_days, t_name, db_name, ext_name = handle_quiz(chat_id, data)
             if order_desc:
                 lead_id = database.save_lead(chat_id, username, user_name, order_desc)
                 ok_msg = (
                     f"✅ <b>Заказ #{lead_id} успешно оформлен!</b>\n\n"
-                    f"Предварительная смета зафиксирована на сумму <b>{total_price} ₽</b>.\n"
-                    f"Мы свяжемся с вами в течение 15 минут для обсуждения деталей!"
+                    f"Предварительная смета зафиксирована на сумму <b>{total_price:,} ₽</b>.\n"
+                    f"⏳ Генерирую для вас официальное коммерческое предложение в PDF..."
                 )
                 send_message(chat_id, ok_msg, get_main_keyboard(is_admin))
+
+                # Генерация PDF коммерческого предложения
+                pdf_path = pdf_generator.generate_proposal_pdf(
+                    order_id=lead_id,
+                    client_name=user_name,
+                    project_type=t_name,
+                    db_title=db_name,
+                    extra_title=ext_name,
+                    total_price=total_price,
+                    total_days=total_days
+                )
+
+                # Отправка PDF клиенту
+                if pdf_path and os.path.exists(pdf_path):
+                    send_document(
+                        chat_id,
+                        pdf_path,
+                        caption=f"📄 Коммерческое предложение к заказу #{lead_id} от IT-Студии"
+                    )
 
                 # Уведомление администратора
                 if current_admin:
@@ -353,7 +439,7 @@ def handle_callback(chat_id, data, user_name, username):
                         f"🆔 <b>User ID:</b> <code>{chat_id}</code>\n\n"
                         f"📋 <b>Детали сметы:</b>\n"
                         f"{order_desc}\n"
-                        f"💵 <b>Сумма к оплате:</b> {total_price} ₽"
+                        f"💵 <b>Сумма к оплате:</b> {total_price:,} ₽ ({total_days} дн.)"
                     )
                     reply_kb = None
                     if username:
@@ -363,6 +449,13 @@ def handle_callback(chat_id, data, user_name, username):
                             ]
                         }
                     send_message(current_admin, admin_alert, reply_kb)
+                    # Отправляем копию PDF администратору
+                    if pdf_path and os.path.exists(pdf_path):
+                        send_document(
+                            current_admin,
+                            pdf_path,
+                            caption=f"📄 Копия КП #{lead_id} для клиента {user_name}"
+                        )
         else:
             handle_quiz(chat_id, data)
 
@@ -415,7 +508,7 @@ def handle_callback(chat_id, data, user_name, username):
 
 def run_bot():
     print("=" * 60)
-    print("🤖 TELEGRAM BOT SERVER ЗАПУЩЕН (v2.0 Modular)")
+    print("🤖 TELEGRAM BOT SERVER ЗАПУЩЕН (v2.1 Full Suite)")
     print("=" * 60)
 
     database.init_db()
@@ -460,15 +553,16 @@ def run_bot():
 
                         print(f"📩 Сообщение от {user_name} (ID: {chat_id}): {text}")
 
+                        # Приветственное сообщение строго по образцу пользователя
                         if text == "/start":
                             welcome = (
                                 f"Привет, <b>{user_name}</b>! 👋\n\n"
-                                "Я автоматический бот-визитка для демонстрации коммерческих возможностей IT-Студии."
+                                "Я автоматический бот-визитка для демонстрации коммерческих возможностей IT-Студии.\n"
+                                "Рассчитайте смету в калькуляторе или выберите раздел ниже:"
                             )
                             send_message(chat_id, welcome, get_main_keyboard(is_admin))
 
                         elif text == "/stop":
-                            # Подтверждаем апдейт серверу Telegram
                             telegram_api("getUpdates", {"offset": item["update_id"] + 1, "limit": 1})
                             if msg.get("date", 0) < bot_start_time - 2:
                                 print(f"⏩ Пропуск старой команды /stop из очереди.")
@@ -507,40 +601,34 @@ def run_bot():
                                 send_message(chat_id, rep, get_admin_keyboard())
 
                         else:
-                            # Сохраняем свободный текст как входящую заявку клиента
+                            # 1. Сохраняем входящее сообщение как заявку в CRM
                             lead_id = database.save_lead(chat_id, uname, user_name, text)
-                            if lead_id:
-                                ok_msg = (
-                                    f"✅ <b>Спасибо, {user_name}! Заявка #{lead_id} принята!</b>\n\n"
-                                    f"Ваш запрос сохранён в базу данных SQLite:\n"
-                                    f"«<i>{text}</i>»\n\n"
-                                    f"Мы свяжемся с вами в ближайшее время."
-                                )
-                                print(f"💾 Заявка #{lead_id} от {user_name} сохранена в leads.db!")
-                                send_message(chat_id, ok_msg, get_main_keyboard(is_admin))
+                            print(f"💾 Заявка #{lead_id} от {user_name} сохранена в leads.db!")
 
-                                # Мгновенный пуш администратору
-                                if current_admin:
-                                    uname_display = f"@{uname}" if uname else "нет (только имя)"
-                                    admin_alert = (
-                                        f"🔔 <b>НОВАЯ ЗАЯВКА #{lead_id}!</b>\n"
-                                        f"━━━━━━━━━━━━━━━━━━\n"
-                                        f"👤 <b>Клиент:</b> {user_name}\n"
-                                        f"📱 <b>Telegram:</b> {uname_display}\n"
-                                        f"🆔 <b>User ID:</b> <code>{chat_id}</code>\n\n"
-                                        f"📝 <b>Задача / Контакты:</b>\n"
-                                        f"«<i>{text}</i>»"
-                                    )
-                                    reply_kb = None
-                                    if uname:
-                                        reply_kb = {
-                                            "inline_keyboard": [
-                                                [{"text": f"💬 Написать клиенту (@{uname})", "url": f"https://t.me/{uname}"}]
-                                            ]
-                                        }
-                                    send_message(current_admin, admin_alert, reply_kb)
-                            else:
-                                send_message(chat_id, "Используйте меню ниже для навигации:", get_main_keyboard(is_admin))
+                            # 2. Формируем экспертный ответ ИИ-консультанта клиенту
+                            ai_reply = ai_assistant.get_expert_ai_response(text, user_name)
+                            send_message(chat_id, ai_reply, get_main_keyboard(is_admin))
+
+                            # 3. Мгновенный пуш администратору в личку
+                            if current_admin:
+                                uname_display = f"@{uname}" if uname else "нет (только имя)"
+                                admin_alert = (
+                                    f"🔔 <b>НОВАЯ ЗАЯВКА / ВОПРОС #{lead_id}!</b>\n"
+                                    f"━━━━━━━━━━━━━━━━━━\n"
+                                    f"👤 <b>Клиент:</b> {user_name}\n"
+                                    f"📱 <b>Telegram:</b> {uname_display}\n"
+                                    f"🆔 <b>User ID:</b> <code>{chat_id}</code>\n\n"
+                                    f"📝 <b>Вопрос / Задача:</b>\n"
+                                    f"«<i>{text}</i>»"
+                                )
+                                reply_kb = None
+                                if uname:
+                                    reply_kb = {
+                                        "inline_keyboard": [
+                                            [{"text": f"💬 Написать клиенту (@{uname})", "url": f"https://t.me/{uname}"}]
+                                        ]
+                                    }
+                                send_message(current_admin, admin_alert, reply_kb)
 
                     # 2. Обработка нажатий на инлайн-кнопки
                     elif "callback_query" in item:

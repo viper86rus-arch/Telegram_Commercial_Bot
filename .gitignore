@@ -16,3 +16,5 @@ __pycache__/
 # Отчёты и выгрузки
 *.csv
 reports/
+*.pdf
+proposals/
