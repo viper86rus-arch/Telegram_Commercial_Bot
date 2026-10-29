@@ -506,7 +506,8 @@ def handle_callback(chat_id, data, user_name, username):
 # ОСНОВНОЙ ЦИКЛ БОТА (SERVER RUNNER)
 # ---------------------------------------------------------
 
-PID_FILE = "/storage/emulated/0/Documents/Freelance/bots/bot.pid"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+PID_FILE = os.path.join(BASE_DIR, "bot.pid")
 
 
 def enforce_single_instance():

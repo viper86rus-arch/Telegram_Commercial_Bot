@@ -11,8 +11,26 @@ import re
 import struct
 import time
 
-PROPOSALS_DIR = "/storage/emulated/0/Documents/Freelance/bots/proposals"
-FONT_PATH = "/system/fonts/Roboto-Regular.ttf"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+PROPOSALS_DIR = os.path.join(BASE_DIR, "proposals")
+
+
+def find_system_font():
+    """Поиск подходящего шрифта TrueType с поддержкой кириллицы."""
+    candidates = [
+        "/system/fonts/Roboto-Regular.ttf",
+        "/system/fonts/DroidSans.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/TTF/DejaVuSans.ttf",
+        "C:\\Windows\\Fonts\\arial.ttf"
+    ]
+    for p in candidates:
+        if os.path.exists(p):
+            return p
+    return "/system/fonts/Roboto-Regular.ttf"
+
+
+FONT_PATH = find_system_font()
 
 _CACHED_FONT_DATA = None
 _CACHED_CMAP = None

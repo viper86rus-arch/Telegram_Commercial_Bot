@@ -142,11 +142,13 @@ def get_setting(key, default=None):
         return default
 
 
-def export_leads_to_csv(filepath="/storage/emulated/0/Documents/Freelance/bots/leads_report.csv"):
+def export_leads_to_csv(filepath=None):
     """
     Экспорт всех заявок в файл CSV.
     Использует кодировку 'utf-8-sig' с BOM для корректного открытия в Excel на Windows/Android/Mac.
     """
+    if filepath is None:
+        filepath = os.path.join(os.path.dirname(os.path.abspath(DB_PATH)), "leads_report.csv")
     try:
         leads = get_all_leads()
         with open(filepath, mode="w", newline="", encoding="utf-8-sig") as f:

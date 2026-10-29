@@ -12,6 +12,8 @@ import re
 import urllib.error
 import urllib.request
 
+import config
+
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 
 SYSTEM_PROMPT = """
