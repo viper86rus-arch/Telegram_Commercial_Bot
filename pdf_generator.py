@@ -7,6 +7,7 @@
 """
 
 import os
+import re
 import struct
 import time
 
@@ -16,6 +17,20 @@ FONT_PATH = "/system/fonts/Roboto-Regular.ttf"
 _CACHED_FONT_DATA = None
 _CACHED_CMAP = None
 _CACHED_W_STRING = None
+
+
+def clean_text_for_pdf(text):
+    """Удаляет эмодзи и спецсимволы, которых нет в текстовом шрифте (устраняет символы tofu)."""
+    if not text:
+        return ""
+    emoji_pattern = re.compile(
+        r'[\U00010000-\U0010ffff]'
+        r'|[\u2600-\u27bf]'
+        r'|[\ufe00-\ufe0f]',
+        flags=re.UNICODE
+    )
+    cleaned = emoji_pattern.sub("", str(text))
+    return cleaned.strip()
 
 
 def get_font_cmap_and_widths():
@@ -97,6 +112,12 @@ def generate_proposal_pdf(order_id, client_name, project_type, db_title, extra_t
     output_path = os.path.join(PROPOSALS_DIR, pdf_filename)
 
     font_data, cmap, w_array_str = get_font_cmap_and_widths()
+
+    # Очищаем входные строки от эмодзи, чтобы не было символов tofu (квадратов)
+    project_type = clean_text_for_pdf(project_type)
+    db_title = clean_text_for_pdf(db_title)
+    extra_title = clean_text_for_pdf(extra_title)
+    client_name = clean_text_for_pdf(client_name)
 
     def enc(text):
         return "".join(f"{cmap.get(c, 0):04X}" for c in str(text))
