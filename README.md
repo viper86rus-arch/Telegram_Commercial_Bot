@@ -73,7 +73,7 @@ cp .env.example .env
 Откройте файл `.env` и впишите ваш токен от `@BotFather`:
 ```ini
 BOT_TOKEN=1234567890:ABCdefGHIjklMNOpqrsTUVwxyz
-ADMIN_CHAT_ID=707755583
+ADMIN_CHAT_ID=123456789
 DB_PATH=leads.db
 # GEMINI_API_KEY=your_key_here (опционально для онлайн-ИИ)
 ```
