@@ -506,11 +506,43 @@ def handle_callback(chat_id, data, user_name, username):
 # ОСНОВНОЙ ЦИКЛ БОТА (SERVER RUNNER)
 # ---------------------------------------------------------
 
+PID_FILE = "/storage/emulated/0/Documents/Freelance/bots/bot.pid"
+
+
+def enforce_single_instance():
+    """Гарантирует, что запущен строго один экземпляр бота (убивает старые дубликаты)."""
+    my_pid = os.getpid()
+    if os.path.exists(PID_FILE):
+        try:
+            with open(PID_FILE, "r") as f:
+                content = f.read().strip()
+            if content.isdigit():
+                old_pid = int(content)
+                if old_pid != my_pid:
+                    try:
+                        # Проверяем, жив ли старый процесс
+                        os.kill(old_pid, 0)
+                        print(f"🔪 Завершаю старый дублирующий экземпляр бота (PID {old_pid})...")
+                        os.kill(old_pid, 9)
+                        time.sleep(0.5)
+                    except OSError:
+                        pass
+        except Exception as e:
+            print(f"⚠️ Ошибка проверки PID: {e}")
+
+    try:
+        with open(PID_FILE, "w") as f:
+            f.write(str(my_pid))
+    except Exception as e:
+        print(f"⚠️ Ошибка записи PID: {e}")
+
+
 def run_bot():
     print("=" * 60)
     print("🤖 TELEGRAM BOT SERVER ЗАПУЩЕН (v2.1 Full Suite)")
     print("=" * 60)
 
+    enforce_single_instance()
     database.init_db()
 
     if not BOT_TOKEN or BOT_TOKEN.startswith("YOUR_BOT"):
