@@ -178,7 +178,7 @@ python demo_bot.py
 | **ИИ-ядро** | Гибридное: Google Gemini API + Offline Knowledge Base |
 | **Защита процесса** | Single-Instance Lock (`bot.pid`, авто-клининг дублей) |
 | **Безопасность** | RBAC по Telegram ID, `.env` изоляция токенов |
-| **Среда выполнения** | Linux, macOS, Windows, Android (Termux / Antigravity) |
+| **Среда выполнения** | Linux (Ubuntu, Debian, Alpine), macOS, Windows Server |
 
 ---
 
