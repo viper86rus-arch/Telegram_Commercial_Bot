@@ -79,8 +79,8 @@ cp .env.example .env
 ```
 Откройте файл `.env` и впишите ваш токен от `@BotFather`:
 ```ini
-BOT_TOKEN=1234567890:ABCdefGHIjklMNOpqrsTUVwxyz
-ADMIN_CHAT_ID=123456789
+BOT_TOKEN=your_bot_token_here
+ADMIN_CHAT_ID=your_telegram_id
 DB_PATH=leads.db
 # GEMINI_API_KEY=your_key_here (опционально для онлайн-ИИ)
 ```
@@ -90,14 +90,6 @@ DB_PATH=leads.db
 ```bash
 python demo_bot.py
 ```
-
----
-
-## 👨‍💻 Автор и контакты
-
-* **Разработчик:** Макс ([@V1PER86RUS](https://t.me/V1PER86RUS))
-* **GitHub:** [viper86rus-arch](https://github.com/viper86rus-arch)
-* **Специализация:** Разработка Telegram-ботов, асинхронные парсеры данных (Web Scraping), автоматизация бизнес-процессов на Python.
 
 ---
 
