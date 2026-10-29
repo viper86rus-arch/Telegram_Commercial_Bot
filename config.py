@@ -33,4 +33,5 @@ BANK_BIK = os.environ.get("BANK_BIK", "")
 BANK_CORR = os.environ.get("BANK_CORR", "")
 BANK_ACCOUNT = os.environ.get("BANK_ACCOUNT", "")
 PAYMENT_SBP = os.environ.get("PAYMENT_SBP", "")
+PAYMENT_PROVIDER_TOKEN = os.environ.get("PAYMENT_PROVIDER_TOKEN", "")
 API_BASE = f"https://api.telegram.org/bot{BOT_TOKEN}"

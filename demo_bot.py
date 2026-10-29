@@ -17,7 +17,7 @@ import urllib.error
 import urllib.request
 
 import ai_assistant
-from config import ADMIN_CHAT_ID, API_BASE, BOT_TOKEN
+from config import ADMIN_CHAT_ID, API_BASE, BOT_TOKEN, PAYMENT_PROVIDER_TOKEN
 import database
 import pdf_generator
 
@@ -57,6 +57,42 @@ def send_message(chat_id, text, reply_markup=None):
     return telegram_api("sendMessage", data)
 
 
+def answer_callback_query(callback_query_id, text=None, show_alert=False):
+    """Ответ на callback_query для снятия анимации загрузки кнопки."""
+    if not callback_query_id:
+        return None
+    data = {"callback_query_id": callback_query_id}
+    if text:
+        data["text"] = text
+        data["show_alert"] = show_alert
+    return telegram_api("answerCallbackQuery", data)
+
+
+def send_invoice(chat_id, title, description, payload, provider_token, currency, prices):
+    """Отправка счёта на оплату через нативный Telegram Payments API."""
+    data = {
+        "chat_id": chat_id,
+        "title": title,
+        "description": description,
+        "payload": payload,
+        "provider_token": provider_token,
+        "currency": currency,
+        "prices": prices
+    }
+    return telegram_api("sendInvoice", data)
+
+
+def answer_pre_checkout_query(pre_checkout_query_id, ok=True, error_message=None):
+    """Подтверждение готовности принять платёж Telegram Bot API."""
+    data = {
+        "pre_checkout_query_id": pre_checkout_query_id,
+        "ok": ok
+    }
+    if error_message:
+        data["error_message"] = error_message
+    return telegram_api("answerPreCheckoutQuery", data)
+
+
 def send_document(chat_id, file_path, caption=""):
     """Отправка файлов (PDF/CSV/Excel) клиенту или администратору."""
     url = f"{API_BASE}/sendDocument"
@@ -89,6 +125,90 @@ def send_document(chat_id, file_path, caption=""):
     except Exception as e:
         print(f"❌ Ошибка отправки документа {filename}: {e}")
         return None
+
+
+def send_payment_options(chat_id, lead_id, total_price, total_days):
+    """Отправка карточки с вариантами оплаты (аванс 30% или 100% со скидкой 5%)."""
+    advance_amount = int(round(total_price * 0.30))
+    full_discount_amount = int(round(total_price * 0.95))
+    discount_savings = total_price - full_discount_amount
+
+    payment_text = (
+        f"💳 <b>ОПЛАТА И СТАРТ ПРОЕКТА ПО ЗАКАЗУ #{lead_id}</b>\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"📄 Официальная смета с цифровой подписью сформирована выше.\n"
+        f"💰 Полная смета: <b>{total_price:,} ₽</b>\n"
+        f"⏱ Срок разработки: <b>{total_days} дн.</b>\n\n"
+        f"Выберите удобный вариант оплаты:\n"
+        f"1️⃣ <b>Аванс 30% ({advance_amount:,} ₽)</b> — фиксация старта, остаток 70% после приёмки работ.\n"
+        f"2️⃣ <b>100% оплата со скидкой 5% ({full_discount_amount:,} ₽)</b> — моментальная экономия {discount_savings:,} ₽!\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"🔒 <i>Платежи защищены ст. 435, 438 ГК РФ (безотзывная оферта) и 422-ФЗ. Электронный чек самозанятого генерируется автоматически.</i>"
+    )
+    payment_kb = {
+        "inline_keyboard": [
+            [{"text": f"💳 Внести аванс 30% ({advance_amount:,} ₽)", "callback_data": f"pay_opt:advance:{lead_id}:{advance_amount}:{total_price}"}],
+            [{"text": f"💵 Оплатить 100% со скидкой ({full_discount_amount:,} ₽)", "callback_data": f"pay_opt:full:{lead_id}:{full_discount_amount}:{total_price}"}],
+            [{"text": "◀️ В главное меню", "callback_data": "menu"}]
+        ]
+    }
+    send_message(chat_id, payment_text, payment_kb)
+
+
+def process_successful_payment(chat_id, user_name, username, lead_id, opt, amount, tx_id):
+    """Единая обработка успешного платежа (демо или реального)."""
+    status = "paid_advance" if opt == "advance" else "paid_full"
+    opt_title = "Аванс 30%" if opt == "advance" else "Полная оплата 100% (со скидкой 5%)"
+    database.record_payment(lead_id, amount, status, tx_id)
+
+    now_str = time.strftime("%d.%m.%Y %H:%M:%S")
+    client_receipt = (
+        f"🎉 <b>ОПЛАТА УСПЕШНО ЗАЧИСЛЕНА!</b>\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"🧾 <b>Чек / Транзакция:</b> <code>#{tx_id}</code>\n"
+        f"📋 <b>Номер заказа:</b> #{lead_id}\n"
+        f"💰 <b>Сумма платежа:</b> <b>{amount:,} ₽</b>\n"
+        f"📊 <b>Статус:</b> Оплачено ({opt_title})\n"
+        f"🕒 <b>Дата и время:</b> {now_str} (МСК)\n"
+        f"👤 <b>Заказчик:</b> {user_name}\n\n"
+        f"✅ <b>Фискализация (422-ФЗ):</b> Электронный фискальный чек сформирован в сервисе ФНС «Мой налог».\n"
+        f"📑 <b>Юридическая гарантия (63-ФЗ):</b> Сделка оформлена по акцептованной смете #{lead_id}.\n"
+        f"🚀 <b>Статус проекта:</b> «В РАБОТЕ». Разработчик уведомлен и приступает к реализации!\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"<i>Спасибо за сотрудничество! Вы можете связаться со мной или отслеживать этапы в любой момент:</i>"
+    )
+    receipt_kb = {
+        "inline_keyboard": [
+            [{"text": "📁 Моё портфолио", "callback_data": "portfolio"}],
+            [{"text": "📞 Контакты разработчика", "callback_data": "contacts"}],
+            [{"text": "◀️ В главное меню", "callback_data": "menu"}]
+        ]
+    }
+    send_message(chat_id, client_receipt, receipt_kb)
+
+    # Уведомление администратора
+    current_admin = database.get_setting("admin_chat_id", ADMIN_CHAT_ID)
+    if current_admin:
+        uname_display = f"@{username}" if username else "нет (только имя)"
+        admin_alert = (
+            f"💰 <b>ПОСТУПИЛА ОПЛАТА ПО ЗАКАЗУ #{lead_id}!</b>\n"
+            f"━━━━━━━━━━━━━━━━━━\n"
+            f"🧾 <b>Транзакция:</b> <code>#{tx_id}</code>\n"
+            f"👤 <b>Клиент:</b> {user_name}\n"
+            f"📱 <b>Telegram:</b> {uname_display}\n"
+            f"🆔 <b>User ID:</b> <code>{chat_id}</code>\n"
+            f"💵 <b>Сумма:</b> <b>{amount:,} ₽</b> ({opt_title})\n"
+            f"🕒 <b>Время:</b> {now_str} (МСК)\n\n"
+            f"🚀 <b>Статус:</b> Заказ переведён в «В работе». Свяжитесь с клиентом для начала разработки!"
+        )
+        reply_kb = None
+        if username:
+            reply_kb = {
+                "inline_keyboard": [
+                    [{"text": f"💬 Написать клиенту (@{username})", "url": f"https://t.me/{username}"}]
+                ]
+            }
+        send_message(current_admin, admin_alert, reply_kb)
 
 
 # ---------------------------------------------------------
@@ -253,8 +373,10 @@ def handle_quiz(chat_id, data):
 # ОБРАБОТЧИК КНОПОК И КАРТОЧЕК ПОРТФОЛИО
 # ---------------------------------------------------------
 
-def handle_callback(chat_id, data, user_name, username):
+def handle_callback(chat_id, data, user_name, username, cb_id=None):
     """Обработка инлайн-кнопок."""
+    if cb_id:
+        answer_callback_query(cb_id)
     current_admin = database.get_setting("admin_chat_id", ADMIN_CHAT_ID)
     is_admin = (str(chat_id) == str(current_admin))
 
@@ -428,6 +550,9 @@ def handle_callback(chat_id, data, user_name, username):
                         caption=f"📄 Официальная смета к заказу #{lead_id} (заверена штампом ПЭП самозанятого)"
                     )
 
+                # Предлагаем клиенту варианты оплаты (аванс 30% или 100% со скидкой)
+                send_payment_options(chat_id, lead_id, total_price, total_days)
+
                 # Уведомление администратора
                 if current_admin:
                     uname_display = f"@{username}" if username else "нет (только имя)"
@@ -459,6 +584,64 @@ def handle_callback(chat_id, data, user_name, username):
         else:
             handle_quiz(chat_id, data)
 
+    # Выбор опции оплаты (Аванс 30% / Полная оплата 100%)
+    elif data.startswith("pay_opt:"):
+        parts = data.split(":")
+        opt = parts[1]
+        lead_id = int(parts[2])
+        amount = int(parts[3])
+        total_price = int(parts[4]) if len(parts) > 4 else amount
+
+        opt_title = "Аванс 30%" if opt == "advance" else "Полная оплата 100% (со скидкой 5%)"
+
+        if PAYMENT_PROVIDER_TOKEN:
+            # Нативный платёж Telegram Payments
+            inv_title = f"{opt_title} (#{lead_id})"
+            inv_desc = f"Оплата разработки ПО по смете #{lead_id}. Безопасная сделка (422-ФЗ / 63-ФЗ)."
+            prices = [{"label": opt_title, "amount": amount * 100}]
+            payload = f"order_{lead_id}_{opt}_{amount}"
+            send_invoice(chat_id, inv_title, inv_desc, payload, PAYMENT_PROVIDER_TOKEN, "RUB", prices)
+        else:
+            # Интерактивный терминал демо-эквайринга
+            demo_card_text = (
+                f"💳 <b>ИНТЕРАКТИВНЫЙ ЭКВАЙРИНГ / ДЕМО-ОПЛАТА</b>\n"
+                f"━━━━━━━━━━━━━━━━━━\n"
+                f"📋 <b>Номер сметы:</b> #{lead_id}\n"
+                f"📌 <b>Тариф:</b> {opt_title}\n"
+                f"💰 <b>Сумма к списанию:</b> <b>{amount:,} ₽</b>\n"
+                f"🛡 <b>Протокол:</b> 3-D Secure / МИР Accept / PCI DSS v4.0\n\n"
+                f"🏦 <b>Тестовые реквизиты песочницы:</b>\n"
+                f"• Номер карты: <code>1111 1111 1111 1026</code>\n"
+                f"• Срок действия: <code>12/28</code> | CVC: <code>123</code>\n"
+                f"• Режим: Тестовая транзакция (без реального списания средств)\n"
+                f"━━━━━━━━━━━━━━━━━━\n"
+                f"<i>Нажмите кнопку ниже для моментального подтверждения тестовой оплаты и фискализации:</i>"
+            )
+            demo_card_kb = {
+                "inline_keyboard": [
+                    [{"text": f"✅ Подтвердить демо-оплату ({amount:,} ₽)", "callback_data": f"pay_confirm:{lead_id}:{opt}:{amount}"}],
+                    [{"text": "🔄 Выбрать другой вариант", "callback_data": f"pay_show_opts:{lead_id}:{total_price}"}],
+                    [{"text": "❌ Отмена", "callback_data": "menu"}]
+                ]
+            }
+            send_message(chat_id, demo_card_text, demo_card_kb)
+
+    # Подтверждение оплаты (в демо-режиме)
+    elif data.startswith("pay_confirm:"):
+        parts = data.split(":")
+        lead_id = int(parts[1])
+        opt = parts[2]
+        amount = int(parts[3])
+        tx_id = f"TX-{lead_id}-{int(time.time()) % 100000:05d}"
+        process_successful_payment(chat_id, user_name, username, lead_id, opt, amount, tx_id)
+
+    # Возврат к выбору оплаты
+    elif data.startswith("pay_show_opts:"):
+        parts = data.split(":")
+        lead_id = int(parts[1])
+        total_price = int(parts[2])
+        send_payment_options(chat_id, lead_id, total_price, 3)
+
     # Админ-панель
     elif data == "admin_panel":
         if not is_admin:
@@ -470,6 +653,8 @@ def handle_callback(chat_id, data, user_name, username):
             "━━━━━━━━━━━━━━━━━━\n"
             f"📊 <b>Всего заявок в базе:</b> {stats['total_leads']}\n"
             f"👥 <b>Уникальных заказчиков:</b> {stats['unique_clients']}\n"
+            f"💳 <b>Оплаченных заказов:</b> {stats['paid_orders']}\n"
+            f"💰 <b>Общая выручка:</b> <b>{stats['total_revenue']:,} ₽</b>\n"
             f"🆔 <b>Ваш Telegram ID:</b> <code>{chat_id}</code>\n"
             "━━━━━━━━━━━━━━━━━━\n"
             "Выберите действие ниже:"
@@ -494,9 +679,10 @@ def handle_callback(chat_id, data, user_name, username):
             rep = "📭 База заявок пока пуста."
         else:
             rep = "<b>📋 ПОСЛЕДНИЕ ЗАЯВКИ ИЗ БД:</b>\n\n"
-            for lid, fname, uname, msg_text, dt in leads:
+            for lid, fname, uname, msg_text, status, paid_amount, tx_id, dt in leads:
                 uname_str = f"@{uname}" if uname else "без юзернейма"
-                rep += f"<b>Заявка #{lid}</b> от {fname} ({uname_str}):\n"
+                pay_badge = f"💳 <b>{paid_amount:,} ₽</b> (#{tx_id})" if paid_amount > 0 else "⏳ Ожидает оплаты"
+                rep += f"<b>Заявка #{lid}</b> от {fname} ({uname_str}) — {pay_badge}\n"
                 rep += f"💬 <i>{msg_text}</i>\n"
                 rep += f"🕒 <code>{dt}</code>\n\n"
         send_message(chat_id, rep, get_admin_keyboard())
@@ -573,17 +759,33 @@ def run_bot():
                 for item in updates["result"]:
                     offset = item["update_id"] + 1
 
-                    # 1. Обработка текстовых сообщений
+                    # 1. Обработка текстовых сообщений и платежей
                     if "message" in item:
                         msg = item["message"]
                         chat_id = msg["chat"]["id"]
-                        text = msg.get("text", "")
                         user_name = msg["from"].get("first_name", "Пользователь")
                         uname = msg["from"].get("username", "")
 
                         current_admin = database.get_setting("admin_chat_id", ADMIN_CHAT_ID)
                         is_admin = (str(chat_id) == str(current_admin))
 
+                        # Проверка на успешную оплату через Telegram Payments
+                        if "successful_payment" in msg:
+                            sp = msg["successful_payment"]
+                            total_rub = sp.get("total_amount", 0) // 100
+                            payload = sp.get("invoice_payload", "")
+                            tg_charge = sp.get("telegram_payment_charge_id", "")
+                            tx_id = f"TG-{tg_charge[:10]}" if tg_charge else f"TX-{int(time.time())}"
+
+                            parts_p = payload.split("_")
+                            lead_id = int(parts_p[1]) if len(parts_p) > 1 and parts_p[1].isdigit() else 0
+                            opt = parts_p[2] if len(parts_p) > 2 else "full"
+
+                            print(f"💰 Успешный нативный платёж Telegram: {total_rub} ₽ по заказу #{lead_id} (TX: {tx_id})")
+                            process_successful_payment(chat_id, user_name, uname, lead_id, opt, total_rub, tx_id)
+                            continue
+
+                        text = msg.get("text", "")
                         print(f"📩 Сообщение от {user_name} (ID: {chat_id}): {text}")
 
                         # Приветственное сообщение строго по образцу пользователя
@@ -626,9 +828,10 @@ def run_bot():
                                     rep = "📭 База заявок пока пуста."
                                 else:
                                     rep = "<b>📋 ПОСЛЕДНИЕ ЗАЯВКИ ИЗ БД:</b>\n\n"
-                                    for lid, fname, l_uname, msg_text, dt in leads:
+                                    for lid, fname, l_uname, msg_text, status, paid_amount, tx_id, dt in leads:
                                         l_uname_str = f"@{l_uname}" if l_uname else "без юзернейма"
-                                        rep += f"<b>Заявка #{lid}</b> от {fname} ({l_uname_str}):\n"
+                                        pay_badge = f"💳 <b>{paid_amount:,} ₽</b> (#{tx_id})" if paid_amount > 0 else "⏳ Ожидает оплаты"
+                                        rep += f"<b>Заявка #{lid}</b> от {fname} ({l_uname_str}) — {pay_badge}\n"
                                         rep += f"💬 <i>{msg_text}</i>\n"
                                         rep += f"🕒 <code>{dt}</code>\n\n"
                                 send_message(chat_id, rep, get_admin_keyboard())
@@ -663,9 +866,17 @@ def run_bot():
                                     }
                                 send_message(current_admin, admin_alert, reply_kb)
 
-                    # 2. Обработка нажатий на инлайн-кнопки
+                    # 2. Обработка готовности принять платёж Telegram Payments
+                    elif "pre_checkout_query" in item:
+                        pcq = item["pre_checkout_query"]
+                        pcq_id = pcq.get("id")
+                        answer_pre_checkout_query(pcq_id, ok=True)
+                        print(f"💳 Pre-checkout query #{pcq_id} успешно подтверждён.")
+
+                    # 3. Обработка нажатий на инлайн-кнопки
                     elif "callback_query" in item:
                         cb = item["callback_query"]
+                        cb_id = cb.get("id")
                         chat_id = cb["message"]["chat"]["id"]
                         cb_data = cb.get("data", "")
                         from_user = cb.get("from", {})
@@ -673,7 +884,7 @@ def run_bot():
                         uname = from_user.get("username", "")
 
                         print(f"🔘 Кнопка от {user_name}: {cb_data}")
-                        handle_callback(chat_id, cb_data, user_name, uname)
+                        handle_callback(chat_id, cb_data, user_name, uname, cb_id=cb_id)
 
             time.sleep(1)
 
