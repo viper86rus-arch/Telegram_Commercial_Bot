@@ -6,10 +6,13 @@
 и пропорциональной таблицей метрик символов (/W).
 """
 
+import hashlib
 import os
 import re
 import struct
 import time
+
+from config import SELLER_NAME, SELLER_INN
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PROPOSALS_DIR = os.path.join(BASE_DIR, "proposals")
@@ -195,14 +198,57 @@ def generate_proposal_pdf(order_id, client_name, project_type, db_title, extra_t
     # 5. Условия и гарантии
     stream_ops.append("0.35 0.35 0.35 rg")
     stream_ops.append(f"BT /F1 10 Tf 40 338 Td <{enc('УСЛОВИЯ СОТРУДНИЧЕСТВА И ГАРАНТИИ:')}> Tj ET")
-    stream_ops.append(f"BT /F1 9 Tf 40 318 Td <{enc('• Чистый, документированный код на Python 3 с соблюдением стандартов PEP 8.')}> Tj ET")
-    stream_ops.append(f"BT /F1 9 Tf 40 300 Td <{enc('• Полная передача всех исходных кодов и авторских прав заказчику.')}> Tj ET")
-    stream_ops.append(f"BT /F1 9 Tf 40 282 Td <{enc('• Бесплатное исправление любых замечаний и сопровождение первого запуска.')}> Tj ET")
+    stream_ops.append(f"BT /F1 8.5 Tf 40 320 Td <{enc('• Чистый, документированный код на Python 3 с соблюдением стандартов PEP 8.')}> Tj ET")
+    stream_ops.append(f"BT /F1 8.5 Tf 40 304 Td <{enc('• Полная передача всех исходных кодов и авторских прав заказчику.')}> Tj ET")
+    stream_ops.append(f"BT /F1 8.5 Tf 40 288 Td <{enc('• Бесплатное исправление любых замечаний и сопровождение первого запуска.')}> Tj ET")
 
-    stream_ops.append("0.20 0.20 0.20 rg")
-    stream_ops.append(f"BT /F1 10 Tf 40 215 Td <{enc('Разработчик: Макс | Telegram: @V1PER86RUS')}> Tj ET")
-    stream_ops.append("0.50 0.50 0.50 rg")
-    stream_ops.append(f"BT /F1 9 Tf 40 196 Td <{enc('Смета зафиксирована ботом автоматически и готова к согласованию.')}> Tj ET")
+    # Горизонтальный разделитель
+    stream_ops.append("0.85 0.87 0.90 RG 1.0 w 40 272 m 555 272 l S")
+
+    # Хэш и временная метка для электронной подписи
+    time_str = time.strftime("%d.%m.%Y %H:%M")
+    hash_payload = f"{order_id}:{client_name}:{total_price}:{date_str}:{SELLER_INN}".encode("utf-8")
+    raw_hash = hashlib.sha256(hash_payload).hexdigest().upper()
+    doc_hash = f"{raw_hash[:4]}-{raw_hash[4:8]}-{raw_hash[8:12]}-{raw_hash[12:16]}"
+
+    # 6. Блок реквизитов исполнителя (Слева)
+    stream_ops.append("0.10 0.20 0.35 rg")
+    stream_ops.append(f"BT /F1 10 Tf 40 252 Td <{enc('РЕКВИЗИТЫ ИСПОЛНИТЕЛЯ (ОФЕРТА):')}> Tj ET")
+    stream_ops.append("0.25 0.25 0.25 rg")
+    stream_ops.append(f"BT /F1 8.5 Tf 40 236 Td <{enc(f'Исполнитель: {clean_text_for_pdf(SELLER_NAME)}')}> Tj ET")
+    stream_ops.append(f"BT /F1 8.5 Tf 40 220 Td <{enc(f'ИНН: {SELLER_INN} (Плательщик НПД / Самозанятый РФ)')}> Tj ET")
+    stream_ops.append(f"BT /F1 8.5 Tf 40 204 Td <{enc('Связь / Заказы: Telegram @V1PER86RUS')}> Tj ET")
+    stream_ops.append(f"BT /F1 8.5 Tf 40 188 Td <{enc('GitHub: https://github.com/viper86rus-arch')}> Tj ET")
+
+    stream_ops.append("0.45 0.45 0.45 rg")
+    stream_ops.append(f"BT /F1 8 Tf 40 168 Td <{enc('Юридический статус документа:')}> Tj ET")
+    stream_ops.append(f"BT /F1 7.5 Tf 40 154 Td <{enc('Настоящая смета имеет статус официальной безотзывной оферты.')}> Tj ET")
+    stream_ops.append(f"BT /F1 7.5 Tf 40 142 Td <{enc('Оплата счёта / аванса Заказчиком является полным и безоговорочным')}> Tj ET")
+    stream_ops.append(f"BT /F1 7.5 Tf 40 130 Td <{enc('акцептом условий договора на разработку ПО (ст. 435, 438 ГК РФ).')}> Tj ET")
+
+    # 7. Официальный синий штамп простой электронной подписи (Справа)
+    # Заливка фона штампа
+    stream_ops.append("0.95 0.97 1.0 rg 290 125 265 132 re f")
+    # Внешняя двойная синяя рамка (#0F52BA)
+    stream_ops.append("0.06 0.32 0.73 RG 1.5 w 290 125 265 132 re S")
+    stream_ops.append("0.06 0.32 0.73 RG 0.6 w 293 128 259 126 re S")
+
+    # Текст внутри синего штампа
+    stream_ops.append("0.06 0.32 0.73 rg")
+    stream_ops.append(f"BT /F1 9 Tf 302 240 Td <{enc('ДОКУМЕНТ ПОДПИСАН ЭЛЕКТРОННОЙ ПОДПИСЬЮ')}> Tj ET")
+    stream_ops.append("0.06 0.32 0.73 RG 0.8 w 300 233 m 545 233 l S")
+
+    stream_ops.append(f"BT /F1 8 Tf 302 218 Td <{enc('Статус: Плательщик НПД (Самозанятый РФ)')}> Tj ET")
+    stream_ops.append(f"BT /F1 8 Tf 302 202 Td <{enc(f'Владелец: {clean_text_for_pdf(SELLER_NAME)}')}> Tj ET")
+    stream_ops.append(f"BT /F1 8 Tf 302 186 Td <{enc(f'ИНН: {SELLER_INN}')}> Tj ET")
+    stream_ops.append(f"BT /F1 7.5 Tf 302 170 Td <{enc(f'Дата подписания: {time_str} МСК')}> Tj ET")
+    stream_ops.append(f"BT /F1 7.5 Tf 302 154 Td <{enc(f'Идентификатор (хэш): {doc_hash}')}> Tj ET")
+    stream_ops.append(f"BT /F1 7 Tf 302 138 Td <{enc('Простая ЭП в соответствии с 63-ФЗ РФ')}> Tj ET")
+
+    # Подвал страницы
+    stream_ops.append("0.85 0.85 0.85 RG 0.5 w 40 92 m 555 92 l S")
+    stream_ops.append("0.55 0.55 0.55 rg")
+    stream_ops.append(f"BT /F1 8 Tf 40 78 Td <{enc(f'Смета №{order_id} сформирована автоматически ядром Telegram_Commercial_Bot. Документ защищен.')}> Tj ET")
 
     stream_data = "\n".join(stream_ops).encode("ascii")
 

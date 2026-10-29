@@ -405,7 +405,7 @@ def handle_callback(chat_id, data, user_name, username):
                 ok_msg = (
                     f"✅ <b>Заказ #{lead_id} успешно оформлен!</b>\n\n"
                     f"Предварительная смета зафиксирована на сумму <b>{total_price:,} ₽</b>.\n"
-                    f"⏳ Генерирую для вас официальное коммерческое предложение в PDF..."
+                    f"⏳ Генерирую официальное коммерческое предложение в PDF с цифровой подписью..."
                 )
                 send_message(chat_id, ok_msg, get_main_keyboard(is_admin))
 
@@ -425,7 +425,7 @@ def handle_callback(chat_id, data, user_name, username):
                     send_document(
                         chat_id,
                         pdf_path,
-                        caption=f"📄 Коммерческое предложение к заказу #{lead_id} от IT-Студии"
+                        caption=f"📄 Официальная смета к заказу #{lead_id} (заверена штампом ПЭП самозанятого)"
                     )
 
                 # Уведомление администратора
@@ -454,7 +454,7 @@ def handle_callback(chat_id, data, user_name, username):
                         send_document(
                             current_admin,
                             pdf_path,
-                            caption=f"📄 Копия КП #{lead_id} для клиента {user_name}"
+                            caption=f"📄 Копия сметы #{lead_id} со штампом ПЭП для клиента {user_name}"
                         )
         else:
             handle_quiz(chat_id, data)

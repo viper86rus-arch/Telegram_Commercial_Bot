@@ -26,4 +26,6 @@ load_env()
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
 ADMIN_CHAT_ID = os.environ.get("ADMIN_CHAT_ID", "")
 DB_PATH = os.environ.get("DB_PATH", os.path.join(BASE_DIR, "leads.db"))
+SELLER_NAME = os.environ.get("SELLER_NAME", "Самозанятый Исполнитель")
+SELLER_INN = os.environ.get("SELLER_INN", "000000000000")
 API_BASE = f"https://api.telegram.org/bot{BOT_TOKEN}"
