@@ -1,0 +1,18 @@
+# Секреты и переменные окружения
+.env
+*.env
+
+# Базы данных
+*.db
+leads.db
+*.sqlite3
+
+# Временные файлы и кэш Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.log
+
+# Отчёты и выгрузки
+*.csv
+reports/
