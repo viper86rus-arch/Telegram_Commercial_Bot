@@ -1,7 +1,14 @@
-# 🤖 Telegram Commercial Hub & Lead-Gen Bot (v2.1)
+# 🤖 Enterprise Commercial Telegram Bot & Sales Platform
 
-> **Высокопроизводительный коммерческий Telegram-бот под ключ для бизнеса, IT-студий и фрилансеров.**  
-> Разработан на **чистом Python 3** с использованием встроенной стандартной библиотеки (Zero external dependencies).
+[![Python](https://img.shields.io/badge/Python-3.9%2B-blue.svg?logo=python&logoColor=white)](https://www.python.org/)
+[![Telegram Bot API](https://img.shields.io/badge/Telegram_Bot_API-v7.0%2B-2CA5E0.svg?logo=telegram&logoColor=white)](https://core.telegram.org/bots/api)
+[![PDF Engine](https://img.shields.io/badge/PDF_Engine-Pure_Python-45ba4b.svg?logo=adobeacrobatreader&logoColor=white)](https://github.com/viper86rus-arch/Telegram_Commercial_Bot)
+[![SQLite3](https://img.shields.io/badge/SQLite3-Micro_CRM-003B57.svg?logo=sqlite&logoColor=white)](https://www.sqlite.org/)
+[![Dependencies](https://img.shields.io/badge/Dependencies-Zero_Pip-orange.svg)](https://github.com/viper86rus-arch/Telegram_Commercial_Bot)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+> **Промышленная платформа коммерческого Telegram-бота для продаж, лидогенерации и автоматизации клиентского сервиса.**  
+> Поддерживает автоматический 3-шаговый расчёт смет в интерактивном диалоге, генерацию официальных A4 PDF коммерческих предложений на лету и встроенную микро-CRM на SQLite3. Разработан на **чистом Python Standard Library** без внешних зависимостей (`pip install` не требуется).
 
 ---
 
@@ -61,8 +68,8 @@ bots/
 
 ### 1. Клонирование репозитория
 ```bash
-git clone https://github.com/viper86rus-arch/telegram-commercial-bot.git
-cd telegram-commercial-bot
+git clone https://github.com/viper86rus-arch/Telegram_Commercial_Bot.git
+cd Telegram_Commercial_Bot
 ```
 
 ### 2. Настройка конфигурации

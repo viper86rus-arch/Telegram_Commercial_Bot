@@ -355,7 +355,7 @@ def handle_callback(chat_id, data, user_name, username):
         )
         kb = {
             "inline_keyboard": [
-                [{"text": "🐙 Открыть GitHub профиль", "url": "https://github.com/viper86rus-arch"}],
+                [{"text": "🐙 Смотреть код на GitHub", "url": "https://github.com/viper86rus-arch/Telegram_Commercial_Bot"}],
                 [
                     {"text": "📁 Другие кейсы", "callback_data": "portfolio"},
                     {"text": "💰 Рассчитать бота", "callback_data": "calc_step1"}
