@@ -164,7 +164,7 @@ def generate_proposal_pdf(order_id, client_name, project_type, db_title, extra_t
     # 2. Карточка заказчика и реквизиты
     stream_ops.append("0.15 0.15 0.15 rg")
     stream_ops.append(f"BT /F1 11 Tf 40 705 Td <{enc(f'Заказчик: {client_name}')}> Tj ET")
-    stream_ops.append(f"BT /F1 10.5 Tf 40 686 Td <{enc('Исполнитель: V1PER (viper86rus-arch) | Python Full-Stack Developer')}> Tj ET")
+    stream_ops.append(f"BT /F1 10.5 Tf 40 686 Td <{enc(f'Исполнитель: {clean_text_for_pdf(SELLER_NAME)} (V1PER) | Python Full-Stack Developer')}> Tj ET")
     stream_ops.append(f"BT /F1 10 Tf 40 668 Td <{enc('Портфолио проектов: https://github.com/viper86rus-arch')}> Tj ET")
 
     # Горизонтальная линия-разделитель
