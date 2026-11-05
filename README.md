@@ -1,7 +1,8 @@
-# 🤖 Enterprise Commercial Telegram Bot & Sales Platform
+# 🤖 V1PER IT Solutions | Enterprise Commercial Telegram Bot & Sales Platform
 
 [![Tests](https://img.shields.io/badge/Tests-6%2F6%20Passed%20(100%25)-brightgreen.svg)](tests/)
 [![Python](https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue.svg?logo=python&logoColor=white)](https://www.python.org/)
+[![Studio](https://img.shields.io/badge/Studio-V1PER_IT_Solutions-emerald.svg)]()
 [![Telegram Bot API](https://img.shields.io/badge/Telegram_Bot_API-v7.0%2B-2CA5E0.svg?logo=telegram&logoColor=white)](https://core.telegram.org/bots/api)
 [![Payments](https://img.shields.io/badge/Payments-Telegram_Acquiring-blueviolet.svg?logo=telegram&logoColor=white)](https://github.com/viper86rus-arch/Telegram_Commercial_Bot)
 [![PDF Engine](https://img.shields.io/badge/PDF_Engine-Pure_Python-45ba4b.svg?logo=adobeacrobatreader&logoColor=white)](https://github.com/viper86rus-arch/Telegram_Commercial_Bot)
@@ -9,7 +10,7 @@
 [![Dependencies](https://img.shields.io/badge/Dependencies-Zero_Pip-orange.svg)](https://github.com/viper86rus-arch/Telegram_Commercial_Bot)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-> **Промышленная платформа коммерческого Telegram-бота для продаж, лидогенерации и автоматизации клиентского сервиса.**  
+> **Промышленная платформа коммерческого Telegram-бота от студии V1PER IT Solutions для продаж, лидогенерации и автоматизации клиентского сервиса.**  
 > Поддерживает автоматический 3-шаговый расчёт смет в интерактивном диалоге, генерацию официальных A4 PDF коммерческих предложений с векторным штампом цифровой подписи (ПЭП, 63-ФЗ), встроенный модуль приёма платежей (Telegram Payments / Демо-эквайринг) и микро-CRM на SQLite3. Разработан на **чистом Python Standard Library** без внешних зависимостей (`pip install` не требуется).
 
 ---
@@ -47,7 +48,7 @@
 
 3. **🧠 Умный ИИ-консультант (AI Sales Assistant):**
    - Анализирует вопросы клиентов по парсингу, маркетплейсам (WB, Ozon), ботам и базам данных.
-   - Гибридный режим: онлайн-запросы через **Google Gemini API** (при наличии ключа в `.env`) либо мгновенный ответ через встроенную базу знаний IT-Студии.
+   - Гибридный режим: онлайн-запросы через **Google Gemini API** (при наличии ключа в `.env`) либо мгновенный ответ через встроенную базу знаний студии V1PER IT Solutions.
 
 4. **📁 Интерактивные карточки кейсов в портфолио:**
    - Полноценные карточки реализованных проектов:
