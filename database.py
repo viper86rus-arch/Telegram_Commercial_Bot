@@ -205,7 +205,7 @@ def get_setting(key, default=None):
 def export_leads_to_csv(filepath=None):
     """
     Экспорт всех заявок в файл CSV с информацией о платежах.
-    Использует кодировку 'utf-8-sig' с BOM для корректного открытия в Excel на Windows/Android/Mac.
+    Использует кодировку 'utf-8-sig' с BOM для корректного открытия в Excel на Windows, macOS и Linux.
     """
     if filepath is None:
         filepath = os.path.join(os.path.dirname(os.path.abspath(DB_PATH)), "leads_report.csv")
