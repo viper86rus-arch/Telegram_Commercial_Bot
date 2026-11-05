@@ -1,6 +1,7 @@
 # 🤖 Enterprise Commercial Telegram Bot & Sales Platform
 
-[![Python](https://img.shields.io/badge/Python-3.9%2B-blue.svg?logo=python&logoColor=white)](https://www.python.org/)
+[![Tests](https://img.shields.io/badge/Tests-6%2F6%20Passed%20(100%25)-brightgreen.svg)](tests/)
+[![Python](https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue.svg?logo=python&logoColor=white)](https://www.python.org/)
 [![Telegram Bot API](https://img.shields.io/badge/Telegram_Bot_API-v7.0%2B-2CA5E0.svg?logo=telegram&logoColor=white)](https://core.telegram.org/bots/api)
 [![Payments](https://img.shields.io/badge/Payments-Telegram_Acquiring-blueviolet.svg?logo=telegram&logoColor=white)](https://github.com/viper86rus-arch/Telegram_Commercial_Bot)
 [![PDF Engine](https://img.shields.io/badge/PDF_Engine-Pure_Python-45ba4b.svg?logo=adobeacrobatreader&logoColor=white)](https://github.com/viper86rus-arch/Telegram_Commercial_Bot)
@@ -18,6 +19,7 @@
 - [Ключевые возможности](#-ключевые-возможности)
 - [Архитектура проекта](#-архитектура-проекта)
 - [Быстрый старт](#-быстрый-старт)
+- [Запуск тестов](#4-запуск-автоматических-тестов)
 - [Инженерные решения и особенности](#-инженерные-решения-и-особенности)
   - [1. Векторный генератор PDF-смет со штампом ПЭП](#1-векторный-генератор-pdf-смет-со-штампом-пэп-pdf_generatorpy)
   - [2. Модуль платежей и интерактивного эквайринга](#2-модуль-платежей-и-интерактивного-эквайринга-demo_botpy)
@@ -77,14 +79,16 @@
 
 ```text
 Telegram_Commercial_Bot/
-├── demo_bot.py        # Диспетчер событий Telegram, квиз и логика меню
-├── ai_assistant.py    # Модуль гибридного ИИ-консультанта (Gemini + база знаний)
-├── pdf_generator.py   # Генератор официальных смет в PDF (A4 PostScript/Cyrillic)
-├── database.py        # Слой работы с SQLite3, CRM и генератор CSV-отчётов
-├── config.py          # Парсер безопасных переменных окружения (.env)
-├── .env.example       # Публичный шаблон переменных окружения
-├── .gitignore         # Исключение секретов, баз данных и отчётов из Git
-└── README.md          # Документация проекта
+├── demo_bot.py                 # Диспетчер событий Telegram, квиз и логика меню
+├── ai_assistant.py             # Модуль гибридного ИИ-консультанта (Gemini + база знаний)
+├── pdf_generator.py            # Генератор официальных смет в PDF (A4 PostScript/Cyrillic)
+├── database.py                 # Слой работы с SQLite3, CRM и генератор CSV-отчётов
+├── config.py                   # Парсер безопасных переменных окружения (.env)
+├── tests/
+│   └── test_commercial_bot.py  # Автоматический тестовый комплекс (unittest)
+├── .env.example                # Публичный шаблон переменных окружения
+├── .gitignore                  # Исключение секретов, баз данных и отчётов из Git
+└── README.md                   # Документация проекта
 ```
 
 ---
@@ -114,6 +118,12 @@ DB_PATH=leads.db
 Сторонние библиотеки (`pip`) **не требуются** — бот работает сразу на любом стандартном Python 3.9+:
 ```bash
 python demo_bot.py
+```
+
+### 4. Запуск автоматических тестов
+Все ключевые подсистемы (SQLite, экспорт в Excel UTF-8 BOM, генерация PDF-смет и ИИ-база) снабжены автономным тестовым набором:
+```bash
+python3 -m unittest discover -s tests -v
 ```
 
 ---
