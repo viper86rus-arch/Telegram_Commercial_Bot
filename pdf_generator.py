@@ -158,7 +158,7 @@ def generate_proposal_pdf(order_id, client_name, project_type, db_title, extra_t
     # 1. Шапка (Синий баннер)
     stream_ops.append("0.08 0.20 0.38 rg 0 740 595 102 re f")
     stream_ops.append("1.0 1.0 1.0 rg")
-    stream_ops.append(f"BT /F1 16 Tf 40 802 Td <{enc('IT-СТУДИЯ «ПОД КЛЮЧ» | КОММЕРЧЕСКОЕ ПРЕДЛОЖЕНИЕ')}> Tj ET")
+    stream_ops.append(f"BT /F1 15 Tf 40 802 Td <{enc('СТУДИЯ «V1PER IT SOLUTIONS» | КОММЕРЧЕСКОЕ ПРЕДЛОЖЕНИЕ')}> Tj ET")
     stream_ops.append(f"BT /F1 11 Tf 40 768 Td <{enc(f'Официальная смета к заказу №{order_id} от {date_str}')}> Tj ET")
 
     # 2. Карточка заказчика и реквизиты
@@ -278,7 +278,7 @@ def generate_proposal_pdf(order_id, client_name, project_type, db_title, extra_t
     # Подвал страницы
     stream_ops.append("0.85 0.85 0.85 RG 0.5 w 40 88 m 555 88 l S")
     stream_ops.append("0.55 0.55 0.55 rg")
-    stream_ops.append(f"BT /F1 7.5 Tf 40 74 Td <{enc(f'Смета №{order_id} сформирована автоматически ядром Telegram_Commercial_Bot. Документ защищен.')}> Tj ET")
+    stream_ops.append(f"BT /F1 7.5 Tf 40 74 Td <{enc(f'Смета №{order_id} сформирована автоматически студией V1PER IT Solutions. Документ защищен.')}> Tj ET")
 
     stream_data = "\n".join(stream_ops).encode("ascii")
 
