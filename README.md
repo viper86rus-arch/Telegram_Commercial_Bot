@@ -21,7 +21,7 @@
 > - 💳 **Боевой эквайринг:** подключение приёма онлайн-платежей (ЮKassa, Т-Банк, Сбер, Robokassa) с чеками по 54-ФЗ.
 > - 🛡️ **Инфраструктура:** развёртывание на надёжном сервере Linux (24/7 доступность, SSL, резервное копирование).
 >
-> 📩 **Заказать адаптацию и запуск:** [Создать заявку (Issue)](https://github.com/viper86rus-arch/Telegram_Commercial_Bot/issues) или написать в [Профиль студии V1PER](https://github.com/viper86rus-arch).
+> 📩 **Заказать адаптацию и запуск:** [Заказать на Kwork (Безопасная сделка)](https://kwork.ru/user/V1PER86RUS) • [Создать заявку (Issue)](https://github.com/viper86rus-arch/Telegram_Commercial_Bot/issues) • [Профиль студии](https://github.com/viper86rus-arch)
 
 ---
 
