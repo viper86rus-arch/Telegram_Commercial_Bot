@@ -2,6 +2,9 @@
 """
 📁 Модуль базы данных SQLite (database.py)
 Отвечает за сохранение лидов, настройки и экспорт данных в CSV/Excel.
+
+Автор: V1PER (viper86rus-arch)
+Лицензия: MIT (2026)
 """
 
 import csv
