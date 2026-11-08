@@ -1,16 +1,16 @@
 # 🤖 V1PER IT Solutions | Enterprise Commercial Telegram Bot & Sales Platform
 
-[![Tests](https://img.shields.io/badge/Tests-8%2F8%20Passed%20(100%25)-brightgreen.svg)](tests/)
-[![Security Audit](https://img.shields.io/badge/Audit-9%2F9%20Security%20Passed-brightgreen.svg)](audit_stress_test.py)
-[![Security](https://img.shields.io/badge/Protection-CSV_Injection%20%7C%20Path_Traversal-emerald.svg)](database.py)
-[![Python](https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue.svg?logo=python&logoColor=white)](https://www.python.org/)
-[![Studio](https://img.shields.io/badge/Studio-V1PER_IT_Solutions-emerald.svg)]()
-[![Telegram Bot API](https://img.shields.io/badge/Telegram_Bot_API-v7.0%2B-2CA5E0.svg?logo=telegram&logoColor=white)](https://core.telegram.org/bots/api)
-[![Payments](https://img.shields.io/badge/Payments-Telegram_Acquiring-blueviolet.svg?logo=telegram&logoColor=white)](https://github.com/viper86rus-arch/Telegram_Commercial_Bot)
-[![PDF Engine](https://img.shields.io/badge/PDF_Engine-Pure_Python-45ba4b.svg?logo=adobeacrobatreader&logoColor=white)](https://github.com/viper86rus-arch/Telegram_Commercial_Bot)
-[![SQLite3](https://img.shields.io/badge/SQLite3-WAL_Mode-003B57.svg?logo=sqlite&logoColor=white)](https://www.sqlite.org/)
-[![Dependencies](https://img.shields.io/badge/Dependencies-Zero_Pip-orange.svg)](https://github.com/viper86rus-arch/Telegram_Commercial_Bot)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Tests](https://badgen.net/badge/Tests/8%2F8%20Passed/green)](tests/)
+[![Security Audit](https://badgen.net/badge/Security%20Audit/9%2F9%20Hardened/green)](audit_stress_test.py)
+[![Security](https://badgen.net/badge/Protection/CSV%20Injection%20%7C%20Path%20Traversal/green)](database.py)
+[![Python](https://badgen.net/badge/Python/3.10%20-%203.13/blue?icon=python)](https://www.python.org/)
+[![Studio](https://badgen.net/badge/Studio/V1PER%20IT%20Solutions/cyan)](https://github.com/viper86rus-arch)
+[![Telegram Bot API](https://badgen.net/badge/Telegram%20Bot%20API/v7.0+/blue?icon=telegram)](https://core.telegram.org/bots/api)
+[![Payments](https://badgen.net/badge/Payments/Telegram%20Acquiring/purple)](https://github.com/viper86rus-arch/Telegram_Commercial_Bot)
+[![PDF Engine](https://badgen.net/badge/PDF%20Engine/Pure%20Python%20Vector/green)](https://github.com/viper86rus-arch/Telegram_Commercial_Bot)
+[![SQLite3](https://badgen.net/badge/SQLite3/WAL%20Mode/blue)](https://www.sqlite.org/)
+[![Dependencies](https://badgen.net/badge/Dependencies/Zero-Pip/purple)](https://github.com/viper86rus-arch/Telegram_Commercial_Bot)
+[![License: MIT](https://badgen.net/badge/license/MIT/yellow)](LICENSE)
 
 > **Промышленная платформа коммерческого Telegram-бота от студии V1PER IT Solutions для продаж, лидогенерации и автоматизации клиентского сервиса.**  
 > Поддерживает автоматический 3-шаговый расчёт смет в интерактивном диалоге, генерацию официальных A4 PDF коммерческих предложений с векторным штампом цифровой подписи (ПЭП, 63-ФЗ), встроенный модуль приёма платежей (Telegram Payments / Демо-эквайринг) и микро-CRM на SQLite3. Разработан на **чистом Python Standard Library** без внешних зависимостей (`pip install` не требуется).
