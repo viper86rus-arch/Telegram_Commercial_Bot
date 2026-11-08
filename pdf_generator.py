@@ -138,18 +138,29 @@ def get_font_cmap_and_widths():
 def generate_proposal_pdf(order_id, client_name, project_type, db_title, extra_title, total_price, total_days):
     """
     Генерация презентабельного PDF коммерческого предложения с идеальной типографикой.
+    Защищена от Path Traversal (CWE-22) и переполнения токенов (CWE-400).
     """
     os.makedirs(PROPOSALS_DIR, exist_ok=True)
-    pdf_filename = f"proposal_{order_id}.pdf"
-    output_path = os.path.join(PROPOSALS_DIR, pdf_filename)
+
+    # 1. Защита от Path Traversal (CWE-22)
+    clean_order_id = re.sub(r"[^a-zA-Z0-9_-]", "_", str(order_id)).strip("_") or "0"
+    pdf_filename = f"proposal_{clean_order_id}.pdf"
+    output_path = os.path.abspath(os.path.join(PROPOSALS_DIR, pdf_filename))
+
+    # Проверка, что итоговый путь строго внутри PROPOSALS_DIR
+    proposals_abs = os.path.abspath(PROPOSALS_DIR)
+    if not output_path.startswith(proposals_abs):
+        clean_order_id = "safe_order"
+        output_path = os.path.join(proposals_abs, f"proposal_{clean_order_id}.pdf")
 
     font_data, cmap, w_array_str = get_font_cmap_and_widths()
 
-    # Очищаем входные строки от эмодзи, чтобы не было символов tofu (квадратов)
-    project_type = clean_text_for_pdf(project_type)
-    db_title = clean_text_for_pdf(db_title)
-    extra_title = clean_text_for_pdf(extra_title)
-    client_name = clean_text_for_pdf(client_name)
+    # 2. Защита от DoS и переполнения строк PDF (CWE-400 / CWE-770):
+    # Очищаем входные строки от эмодзи и строго ограничиваем длину до 120 символов
+    project_type = clean_text_for_pdf(project_type)[:120]
+    db_title = clean_text_for_pdf(db_title)[:120]
+    extra_title = clean_text_for_pdf(extra_title)[:120]
+    client_name = clean_text_for_pdf(client_name)[:120]
 
     def enc(text):
         return "".join(f"{cmap.get(c, 0):04X}" for c in str(text))
@@ -162,7 +173,7 @@ def generate_proposal_pdf(order_id, client_name, project_type, db_title, extra_t
     stream_ops.append("0.08 0.20 0.38 rg 0 740 595 102 re f")
     stream_ops.append("1.0 1.0 1.0 rg")
     stream_ops.append(f"BT /F1 15 Tf 40 802 Td <{enc('СТУДИЯ «V1PER IT SOLUTIONS» | КОММЕРЧЕСКОЕ ПРЕДЛОЖЕНИЕ')}> Tj ET")
-    stream_ops.append(f"BT /F1 11 Tf 40 768 Td <{enc(f'Официальная смета к заказу №{order_id} от {date_str}')}> Tj ET")
+    stream_ops.append(f"BT /F1 11 Tf 40 768 Td <{enc(f'Официальная смета к заказу №{clean_order_id[:40]} от {date_str}')}> Tj ET")
 
     # 2. Карточка заказчика и реквизиты
     stream_ops.append("0.15 0.15 0.15 rg")

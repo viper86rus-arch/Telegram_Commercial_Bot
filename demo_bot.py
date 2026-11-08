@@ -13,6 +13,7 @@
 Лицензия: MIT (2026)
 """
 
+import html
 import json
 import os
 import re
@@ -397,12 +398,18 @@ def handle_quiz(chat_id, data):
 # ОБРАБОТЧИК КНОПОК И КАРТОЧЕК ПОРТФОЛИО
 # ---------------------------------------------------------
 
-def handle_callback(chat_id, data, user_name, username, cb_id=None):
-    """Обработка инлайн-кнопок."""
+def handle_callback(chat_id, data, user_name, username, cb_id=None, from_user_id=None):
+    """Обработка инлайн-кнопок со строгой проверкой прав отправителя (CWE-285)."""
     if cb_id:
         answer_callback_query(cb_id)
     current_admin = database.get_setting("admin_chat_id", ADMIN_CHAT_ID)
-    is_admin = (str(chat_id) == str(current_admin))
+    sender_id = from_user_id if from_user_id is not None else chat_id
+    is_admin = False
+    if current_admin and sender_id is not None:
+        try:
+            is_admin = (int(sender_id) == int(current_admin))
+        except (ValueError, TypeError):
+            is_admin = False
 
     if data == "menu":
         welcome = (
@@ -662,12 +669,33 @@ def handle_callback(chat_id, data, user_name, username, cb_id=None):
             }
             send_message(chat_id, demo_card_text, demo_card_kb)
 
-    # Подтверждение оплаты (в демо-режиме)
+    # Подтверждение оплаты (в демо-режиме) с защитой от IDOR (CWE-639 / CWE-862)
     elif data.startswith("pay_confirm:"):
         parts = data.split(":")
-        lead_id = int(parts[1])
-        opt = parts[2]
-        amount = int(parts[3])
+        try:
+            lead_id = int(parts[1])
+            opt = parts[2]
+            amount = int(parts[3])
+        except (IndexError, ValueError):
+            send_message(chat_id, "❌ Некорректные параметры оплаты.", get_main_keyboard(is_admin))
+            return
+
+        # Проверка существования заявки и принадлежности пользователю
+        lead = database.get_lead(lead_id)
+        if not lead:
+            send_message(chat_id, "❌ Заявка не найдена в базе данных.", get_main_keyboard(is_admin))
+            return
+
+        lead_owner_id = lead[1]
+        sender_id = from_user_id if from_user_id is not None else chat_id
+        if str(lead_owner_id) != str(sender_id) and not is_admin:
+            send_message(chat_id, "⛔ Ошибка доступа: вы можете подтверждать оплату только по своей заявке.", get_main_keyboard(is_admin))
+            return
+
+        if amount <= 0:
+            send_message(chat_id, "❌ Недопустимая сумма платежа.", get_main_keyboard(is_admin))
+            return
+
         tx_id = f"TX-{lead_id}-{int(time.time()) % 100000:05d}"
         process_successful_payment(chat_id, user_name, username, lead_id, opt, amount, tx_id)
 
@@ -798,13 +826,19 @@ def run_bot():
 
                     # 1. Обработка текстовых сообщений и платежей
                     if "message" in item:
-                        msg = item["message"]
                         chat_id = msg["chat"]["id"]
-                        user_name = msg["from"].get("first_name", "Пользователь")
-                        uname = msg["from"].get("username", "")
+                        from_user = msg.get("from", {})
+                        from_user_id = from_user.get("id")
+                        user_name = html.escape(str(from_user.get("first_name", "Пользователь")), quote=False)
+                        uname = html.escape(str(from_user.get("username", "")), quote=False)
 
                         current_admin = database.get_setting("admin_chat_id", ADMIN_CHAT_ID)
-                        is_admin = (str(chat_id) == str(current_admin))
+                        is_admin = False
+                        if current_admin and from_user_id is not None:
+                            try:
+                                is_admin = (int(from_user_id) == int(current_admin))
+                            except (ValueError, TypeError):
+                                is_admin = False
 
                         # Проверка на успешную оплату через Telegram Payments
                         if "successful_payment" in msg:
@@ -960,10 +994,11 @@ def run_bot():
                                 lead_id = database.save_lead(chat_id, uname, user_name, text)
                                 print(f"💾 Официальная заявка #{lead_id} от {user_name} сохранена в leads.db!")
 
+                                safe_text = html.escape(str(text), quote=False)
                                 ok_lead_text = (
                                     f"✅ <b>Заявка #{lead_id} успешно принята!</b>\n\n"
                                     f"👤 <b>Заказчик:</b> {user_name}\n"
-                                    f"📝 <b>Задача:</b> «<i>{text}</i>»\n\n"
+                                    f"📝 <b>Задача:</b> «<i>{safe_text}</i>»\n\n"
                                     f"👨‍💻 Разработчик V1PER получил уведомление в CRM и свяжется с вами в течение нескольких минут для согласования деталей проекта!"
                                 )
                                 lead_kb = {
@@ -983,7 +1018,7 @@ def run_bot():
                                         f"📱 <b>Telegram:</b> {uname_display}\n"
                                         f"🆔 <b>User ID:</b> <code>{chat_id}</code>\n\n"
                                         f"📝 <b>Текст задачи / Контакты:</b>\n"
-                                        f"«<i>{text}</i>»"
+                                        f"«<i>{safe_text}</i>»"
                                     )
                                     reply_kb = None
                                     if uname:
@@ -1021,11 +1056,12 @@ def run_bot():
                         chat_id = cb["message"]["chat"]["id"]
                         cb_data = cb.get("data", "")
                         from_user = cb.get("from", {})
-                        user_name = from_user.get("first_name", "Пользователь")
-                        uname = from_user.get("username", "")
+                        from_user_id = from_user.get("id")
+                        user_name = html.escape(str(from_user.get("first_name", "Пользователь")), quote=False)
+                        uname = html.escape(str(from_user.get("username", "")), quote=False)
 
                         print(f"🔘 Кнопка от {user_name}: {cb_data}")
-                        handle_callback(chat_id, cb_data, user_name, uname, cb_id=cb_id)
+                        handle_callback(chat_id, cb_data, user_name, uname, cb_id=cb_id, from_user_id=from_user_id)
 
             time.sleep(1)
 

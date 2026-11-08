@@ -9,6 +9,7 @@
 Лицензия: MIT (2026)
 """
 
+import html
 import json
 import os
 import re
@@ -32,18 +33,27 @@ SYSTEM_PROMPT = """
 
 
 def _query_gemini_api(prompt):
-    """Запрос к официальному Gemini REST API (при наличии ключа)."""
+    """
+    Запрос к официальному Gemini REST API (при наличии ключа).
+    Ключ передается в защищенном заголовке x-goog-api-key (CWE-598),
+    а системный промпт изолирован через параметр system_instruction (CWE-707).
+    """
     if not GEMINI_API_KEY:
         return None
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
-    headers = {"Content-Type": "application/json"}
+    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
+    headers = {
+        "Content-Type": "application/json",
+        "x-goog-api-key": GEMINI_API_KEY,
+    }
     payload = {
+        "system_instruction": {
+            "parts": [{"text": SYSTEM_PROMPT.strip()}]
+        },
         "contents": [
             {
-                "parts": [
-                    {"text": f"{SYSTEM_PROMPT}\n\nВопрос клиента: {prompt}"}
-                ]
+                "role": "user",
+                "parts": [{"text": str(prompt)}]
             }
         ]
     }
@@ -61,6 +71,7 @@ def get_expert_ai_response(user_text, user_name="клиент"):
     """
     Формирование умного консультационного ответа клиенту.
     Автоматически выбирает Gemini API или глубокую структурированную базу знаний.
+    Все входные данные экранируются для защиты от HTML Injection и Telegram Parse DoS (CWE-79).
     """
     # 1. Попытка онлайн-ответа через Gemini API
     online_ans = _query_gemini_api(user_text)
@@ -68,15 +79,17 @@ def get_expert_ai_response(user_text, user_name="клиент"):
         return online_ans
 
     # 2. Глубокая экспертная база знаний (Интеллектуальный офлайн-режим)
-    text = user_text.lower().strip()
+    safe_user_name = html.escape(str(user_name or "клиент"), quote=False)
+    safe_user_text = html.escape(str(user_text or ""), quote=False)
+    text = str(user_text or "").lower().strip()
 
     # Определение формы вопроса (вопрос о возможности или умении)
     is_can_question = bool(re.search(r"\b(можно|реально|возможно|получится|сможете|можете|умеете|делаете|парсите|пишете|собираете)\b", text))
 
     intro = (
-        f"Да, конечно, <b>{user_name}</b>! Это одна из наших ключевых профильных специализаций. 🚀\n\n"
+        f"Да, конечно, <b>{safe_user_name}</b>! Это одна из наших ключевых профильных специализаций. 🚀\n\n"
         if is_can_question else
-        f"Здравствуйте, <b>{user_name}</b>! 👋\n\n"
+        f"Здравствуйте, <b>{safe_user_name}</b>! 👋\n\n"
     )
 
     # Ветка: МАРКЕТПЛЕЙСЫ В ЦЕЛОМ (WB, Ozon, Яндекс Маркет, Мегамаркет)
@@ -293,8 +306,8 @@ def get_expert_ai_response(user_text, user_name="клиент"):
 
     # Базовый ответ для произвольных вопросов
     return (
-        f"Спасибо за вопрос, <b>{user_name}</b>! 👋\n\n"
-        f"Вы написали: «<i>{user_text}</i>»\n\n"
+        f"Спасибо за вопрос, <b>{safe_user_name}</b>! 👋\n\n"
+        f"Вы написали: «<i>{safe_user_text}</i>»\n\n"
         "Мы специализируемся на промышленном парсинге маркетплейсов (WB, Ozon, Avito) и разработке Telegram-ботов с онлайн-оплатой и CRM.\n\n"
         "💡 <i>Чтобы рассчитать смету вашего проекта за 1 минуту, воспользуйтесь онлайн-калькулятором ниже или оформите заявку:</i>"
     )

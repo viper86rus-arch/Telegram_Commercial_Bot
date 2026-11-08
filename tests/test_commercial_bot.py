@@ -154,8 +154,24 @@ class TestTelegramCommercialBot(unittest.TestCase):
         self.assertIn("ID Заявки", rows[0][0])
         self.assertIn("Telegram Ник", rows[0][3])
         self.assertEqual(rows[1][1], "111")
-        self.assertEqual(rows[1][3], "@buyer1")
+        self.assertEqual(rows[1][3], "'@buyer1")
         self.assertEqual(rows[2][1], "222")
+
+    def test_csv_formula_injection_defense(self):
+        """Проверка защиты от формульных инъекций Excel (CWE-1236)."""
+        evil_name = "=cmd|' /C calc'!A0"
+        sanitized = database._sanitize_csv_cell(evil_name)
+        self.assertTrue(sanitized.startswith("'="))
+
+    def test_pdf_path_traversal_defense(self):
+        """Проверка защиты от выхода за пределы директории в PDF-генераторе (CWE-22)."""
+        traversal_id = "test/../../escape"
+        pdf_path = pdf_generator.generate_proposal_pdf(
+            traversal_id, "Safe Client", "Type", "DB", "Extra", 10000, 2
+        )
+        self.assertTrue(os.path.abspath(pdf_path).startswith(os.path.abspath(pdf_generator.PROPOSALS_DIR)))
+        if os.path.exists(pdf_path):
+            os.remove(pdf_path)
 
     # ==========================================================================
     # 3. ТЕСТИРОВАНИЕ ГЕНЕРАТОРА PDF

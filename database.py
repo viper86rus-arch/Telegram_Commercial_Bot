@@ -14,8 +14,12 @@ from config import ADMIN_CHAT_ID, DB_PATH
 
 
 def get_connection():
-    """Получение подключения к SQLite с таймаутом."""
-    return sqlite3.connect(DB_PATH, timeout=10)
+    """Получение подключения к SQLite с таймаутом, WAL-режимом и защитой от блокировок."""
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    conn.execute("PRAGMA journal_mode = WAL;")
+    conn.execute("PRAGMA synchronous = NORMAL;")
+    conn.execute("PRAGMA busy_timeout = 10000;")
+    return conn
 
 
 def init_db():
@@ -205,10 +209,26 @@ def get_setting(key, default=None):
         return default
 
 
+def _sanitize_csv_cell(val):
+    """
+    Защита от CSV Formula Injection / DDE Code Execution (CWE-1236):
+    Экранирует формульные префиксы (=, @, +, -, \t, \r) апострофом.
+    """
+    if val is None:
+        return ""
+    if isinstance(val, (int, float)):
+        return val
+    s = str(val).strip()
+    if s and s[0] in ("=", "@", "+", "-", "\t", "\r"):
+        return f"'{s}"
+    return s
+
+
 def export_leads_to_csv(filepath=None):
     """
     Экспорт всех заявок в файл CSV с информацией о платежах.
     Использует кодировку 'utf-8-sig' с BOM для корректного открытия в Excel на Windows, macOS и Linux.
+    Все текстовые ячейки санитизируются для предотвращения CSV Formula Injection (CWE-1236).
     """
     if filepath is None:
         filepath = os.path.join(os.path.dirname(os.path.abspath(DB_PATH)), "leads_report.csv")
@@ -239,7 +259,17 @@ def export_leads_to_csv(filepath=None):
                 lid, uid, fname, uname, status, paid_amount, tx_id, msg, dt = row
                 uname_str = f"@{uname}" if uname else "Не указан"
                 status_str = status_map.get(status, status or "Новая заявка")
-                writer.writerow([lid, uid, fname, uname_str, status_str, paid_amount or 0, tx_id or "", msg, dt])
+                writer.writerow([
+                    lid,
+                    uid,
+                    _sanitize_csv_cell(fname),
+                    _sanitize_csv_cell(uname_str),
+                    _sanitize_csv_cell(status_str),
+                    paid_amount or 0,
+                    _sanitize_csv_cell(tx_id or ""),
+                    _sanitize_csv_cell(msg),
+                    _sanitize_csv_cell(dt)
+                ])
         return filepath
     except Exception as e:
         print(f"❌ Ошибка экспорта в CSV: {e}")
