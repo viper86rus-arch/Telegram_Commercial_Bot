@@ -18,6 +18,7 @@ import json
 import os
 import re
 import time
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 import urllib.error
 import urllib.request
 
@@ -26,15 +27,15 @@ from config import ADMIN_CHAT_ID, API_BASE, BOT_TOKEN, PAYMENT_PROVIDER_TOKEN
 import database
 import pdf_generator
 
-# Множество chat_id клиентов, находящихся в процессе ввода прямой заявки
-AWAITING_LEADS = set()
+# Множество chat_id клиентов, находящихся в процессе ввода прямой заявки (FSM state in-memory)
+AWAITING_LEADS: Set[int] = set()
 
 
 # ---------------------------------------------------------
 # СЕТЕВОЙ СЛОЙ (TELEGRAM BOT API)
 # ---------------------------------------------------------
 
-def telegram_api(method, data=None):
+def telegram_api(method: str, data: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
     """Отправка JSON-запросов к Telegram Bot API."""
     url = f"{API_BASE}/{method}"
     headers = {"Content-Type": "application/json"}
@@ -53,7 +54,7 @@ def telegram_api(method, data=None):
         return None
 
 
-def send_message(chat_id, text, reply_markup=None):
+def send_message(chat_id: Union[int, str], text: str, reply_markup: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
     """Отправка форматированного HTML-сообщения с клавиатурой."""
     data = {
         "chat_id": chat_id,
@@ -65,7 +66,7 @@ def send_message(chat_id, text, reply_markup=None):
     return telegram_api("sendMessage", data)
 
 
-def answer_callback_query(callback_query_id, text=None, show_alert=False):
+def answer_callback_query(callback_query_id: str, text: Optional[str] = None, show_alert: bool = False) -> Optional[Dict[str, Any]]:
     """Ответ на callback_query для снятия анимации загрузки кнопки."""
     if not callback_query_id:
         return None
@@ -76,7 +77,7 @@ def answer_callback_query(callback_query_id, text=None, show_alert=False):
     return telegram_api("answerCallbackQuery", data)
 
 
-def send_invoice(chat_id, title, description, payload, provider_token, currency, prices):
+def send_invoice(chat_id: Union[int, str], title: str, description: str, payload: str, provider_token: str, currency: str, prices: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
     """Отправка счёта на оплату через нативный Telegram Payments API."""
     data = {
         "chat_id": chat_id,
@@ -90,7 +91,7 @@ def send_invoice(chat_id, title, description, payload, provider_token, currency,
     return telegram_api("sendInvoice", data)
 
 
-def answer_pre_checkout_query(pre_checkout_query_id, ok=True, error_message=None):
+def answer_pre_checkout_query(pre_checkout_query_id: str, ok: bool = True, error_message: Optional[str] = None) -> Optional[Dict[str, Any]]:
     """Подтверждение готовности принять платёж Telegram Bot API."""
     data = {
         "pre_checkout_query_id": pre_checkout_query_id,
@@ -101,7 +102,7 @@ def answer_pre_checkout_query(pre_checkout_query_id, ok=True, error_message=None
     return telegram_api("answerPreCheckoutQuery", data)
 
 
-def setup_bot_commands():
+def setup_bot_commands() -> Optional[Dict[str, Any]]:
     """Регистрация системного меню команд бота в Telegram API (кнопка 'Меню' слева внизу)."""
     commands = [
         {"command": "start", "description": "🚀 Главное меню / Перезапуск"},
@@ -118,7 +119,7 @@ def setup_bot_commands():
         print(f"⚠️ Ошибка регистрации команд: {res1}")
 
 
-def send_document(chat_id, file_path, caption=""):
+def send_document(chat_id: Union[int, str], file_path: str, caption: str = "") -> Optional[Dict[str, Any]]:
     """Отправка файлов (PDF/CSV/Excel) клиенту или администратору."""
     url = f"{API_BASE}/sendDocument"
     boundary = "----WebKitFormBoundary" + os.urandom(16).hex()
@@ -152,7 +153,7 @@ def send_document(chat_id, file_path, caption=""):
         return None
 
 
-def send_payment_options(chat_id, lead_id, total_price, total_days):
+def send_payment_options(chat_id: Union[int, str], lead_id: int, total_price: int, total_days: int) -> None:
     """Отправка карточки с вариантами оплаты (аванс 30% или 100% со скидкой 5%)."""
     advance_amount = int(round(total_price * 0.30))
     full_discount_amount = int(round(total_price * 0.95))
@@ -180,7 +181,7 @@ def send_payment_options(chat_id, lead_id, total_price, total_days):
     send_message(chat_id, payment_text, payment_kb)
 
 
-def process_successful_payment(chat_id, user_name, username, lead_id, opt, amount, tx_id):
+def process_successful_payment(chat_id: Union[int, str], user_name: str, username: str, lead_id: int, opt: str, amount: int, tx_id: str) -> None:
     """Единая обработка успешного платежа (демо или реального)."""
     status = "paid_advance" if opt == "advance" else "paid_full"
     opt_title = "Аванс 30%" if opt == "advance" else "Полная оплата 100% (со скидкой 5%)"
@@ -240,7 +241,7 @@ def process_successful_payment(chat_id, user_name, username, lead_id, opt, amoun
 # ГЛАВНЫЕ КЛАВИАТУРЫ
 # ---------------------------------------------------------
 
-def get_main_keyboard(is_admin=False):
+def get_main_keyboard(is_admin: bool = False) -> Dict[str, Any]:
     """Главное меню с кнопками навигации."""
     buttons = [
         [
@@ -257,7 +258,7 @@ def get_main_keyboard(is_admin=False):
     return {"inline_keyboard": buttons}
 
 
-def get_admin_keyboard():
+def get_admin_keyboard() -> Dict[str, Any]:
     """Клавиатура панели администратора."""
     return {
         "inline_keyboard": [
@@ -295,7 +296,7 @@ QUIZ_PRICES = {
 }
 
 
-def handle_quiz(chat_id, data):
+def handle_quiz(chat_id: Union[int, str], data: str) -> Tuple[Optional[str], Optional[int], Optional[int], Optional[str], Optional[str], Optional[str]]:
     """Пошаговый квиз-калькулятор стоимости."""
     parts = data.split(":")
     step = parts[0]
@@ -398,7 +399,14 @@ def handle_quiz(chat_id, data):
 # ОБРАБОТЧИК КНОПОК И КАРТОЧЕК ПОРТФОЛИО
 # ---------------------------------------------------------
 
-def handle_callback(chat_id, data, user_name, username, cb_id=None, from_user_id=None):
+def handle_callback(
+    chat_id: Union[int, str],
+    data: str,
+    user_name: str,
+    username: str,
+    cb_id: Optional[str] = None,
+    from_user_id: Optional[int] = None
+) -> None:
     """Обработка инлайн-кнопок со строгой проверкой прав отправителя (CWE-285)."""
     if cb_id:
         answer_callback_query(cb_id)
@@ -760,7 +768,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PID_FILE = os.path.join(BASE_DIR, "bot.pid")
 
 
-def enforce_single_instance():
+def enforce_single_instance() -> None:
     """Гарантирует, что запущен строго один экземпляр бота (убивает старые дубликаты)."""
     my_pid = os.getpid()
     if os.path.exists(PID_FILE):
@@ -788,7 +796,7 @@ def enforce_single_instance():
         print(f"⚠️ Ошибка записи PID: {e}")
 
 
-def run_bot():
+def run_bot() -> None:
     print("=" * 60)
     print("🤖 TELEGRAM BOT SERVER ЗАПУЩЕН (v2.1 Full Suite)")
     print("=" * 60)
